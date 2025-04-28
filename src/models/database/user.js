@@ -33,6 +33,7 @@ module.exports = (sequelize, DataTypes) => {
       role_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        defaultValue: 3,
       },
     },
     {
