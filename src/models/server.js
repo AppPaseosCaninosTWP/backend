@@ -3,12 +3,17 @@ const cors = require("cors");
 const logger = require("morgan");
 const sequelize = require("./database/sequelize");
 
+const validate_jwt = require("../middlewares/validate_jwt");
+const auth_routes = require("../routes/auth/auth.routes");
+
 class Server {
   constructor() {
     console.log("Iniciando Server class");
     this.app = express();
     this.port = process.env.PORT || 3000;
-    this.paths = {};
+    this.paths = {
+      auth: "/api/auth",
+    };
 
     this.dbConnection();
     this.middlewares();
@@ -38,6 +43,7 @@ class Server {
         message: "API running",
       });
     });
+    this.app.use(this.paths.auth, auth_routes);
   }
 
   listen() {
