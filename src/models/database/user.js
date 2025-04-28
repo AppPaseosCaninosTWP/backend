@@ -1,49 +1,49 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('./database/sequelize');
+"use strict";
 
-const User = sequelize.define('user', {
-  user_id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  email: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-  },
-  phone: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  password: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  is_enable: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
-  },
-  ticket: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-  },
-  role_id: {
-    type: DataTypes.INTEGER,
-    references: {
-      model: 'roles',
-      key: 'role_id',
+module.exports = (sequelize, DataTypes) => {
+  const user = sequelize.define(
+    "user",
+    {
+      user_id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+      },
+      phone: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      password: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      is_enable: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+      },
+      ticket: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
+      role_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
     },
-    allowNull: false,
-  }
-}, {
-  tableName: 'user',
-  timestamps: false
-});
+    {
+      tableName: "user",
+      timestamps: false,
+    }
+  );
 
-User.belongsTo(Role, {
-    foreignKey: 'role_id',
-    as: 'role'
-  });
+  user.associate = (models) => {
+    user.belongsTo(models.role, { foreignKey: "role_id", as: "role" });
+  };
 
-module.exports = User;
+  return user;
+};
