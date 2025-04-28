@@ -5,6 +5,7 @@ const sequelize = require("./database/sequelize");
 
 const validate_jwt = require("../middlewares/validate_jwt");
 const auth_routes = require("../routes/auth/auth.routes");
+const user_routes = require("../routes/user/user.routes");
 
 class Server {
   constructor() {
@@ -13,6 +14,7 @@ class Server {
     this.port = process.env.PORT || 3000;
     this.paths = {
       auth: "/api/auth",
+      user: "/api/user",
     };
 
     this.dbConnection();
@@ -44,6 +46,7 @@ class Server {
       });
     });
     this.app.use(this.paths.auth, auth_routes);
+    this.app.use(this.paths.user, user_routes);
   }
 
   listen() {
