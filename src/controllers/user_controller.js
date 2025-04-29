@@ -62,7 +62,40 @@ const get_user_by_id = async (req, res) => {
   }
 };
 
+const update_is_enable = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_enable } = req.body;
+
+    const found_user = await user.findByPk(id);
+
+    if (!found_user) {
+      return res
+        .status(404)
+        .json({ msg: "usuario no encontrado", error: true });
+    }
+
+    if (found_user.role_id !== 2 && found_user.role_id !== 3) {
+      return res
+        .status(403)
+        .json({ msg: "acción no permitida para este rol", error: true });
+    }
+
+    await user.update({ is_enable }, { where: { user_id: id } });
+
+    res.json({
+      msg: "estado de usuario actualizado correctamente",
+      data: { id, is_enable },
+      error: false,
+    });
+  } catch (err) {
+    console.error("error en update_is_enable:", err);
+    res.status(500).json({ msg: "error en el servidor", error: true });
+  }
+};
+
 module.exports = {
   get_users,
   get_user_by_id,
+  update_is_enable,
 };
