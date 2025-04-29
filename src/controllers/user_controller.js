@@ -14,12 +14,15 @@ const get_users = async (req, res) => {
     });
 
     return res.json({
-      msg: "Usuarios obtenidos exitosamente",
+      msg: "usuarios obtenidos exitosamente",
       data: rows.map((u) => ({
         user_id: u.user_id,
         email: u.email,
         phone: u.phone,
-        role: u.role?.name || null,
+        is_enable: u.is_enable,
+        ticket: u.ticket,
+        role_id: u.role_id,
+        role_name: u.role?.name || null,
       })),
       total: count,
       page,
@@ -36,29 +39,30 @@ const get_user_by_id = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const user_ = await user.findByPk(id, {
+    const found_user = await user.findByPk(id, {
       include: { model: role, as: "role" },
     });
 
-    if (!user_) {
-      return res
-        .status(404)
-        .json({ msg: "Usuario no encontrado", error: true });
+    if (!found_user) {
+      return res.status(404).json({ msg: "usuario no encontrado", error: true });
     }
 
     return res.json({
-      msg: "Usuario encontrado exitosamente",
+      msg: "usuario encontrado exitosamente",
       data: {
-        user_id: user_.user_id,
-        email: user_.email,
-        phone: user_.phone,
-        role: user_.role?.name || null,
+        user_id: found_user.user_id,
+        email: found_user.email,
+        phone: found_user.phone,
+        is_enable: found_user.is_enable,
+        ticket: found_user.ticket,
+        role_id: found_user.role_id,
+        role_name: found_user.role?.name || null,
       },
       error: false,
     });
   } catch (error) {
-    console.error("Error en get_user_by_id:", error);
-    return res.status(500).json({ msg: "Error en el servidor", error: true });
+    console.error("error en get_user_by_id:", error);
+    return res.status(500).json({ msg: "error en el servidor", error: true });
   }
 };
 
