@@ -35,6 +35,14 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: 3,
       },
+      reset_code: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      reset_code_expires: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
     },
     {
       tableName: "user",
