@@ -12,24 +12,20 @@ const login_user = async (req, res) => {
     });
 
     if (!user_) {
-      return res
-        .status(404)
-        .json({
-          msg: "Correo o contraseña incorrectos",
-          data: null,
-          error: true,
-        });
+      return res.status(404).json({
+        msg: "Correo o contraseña incorrectos",
+        data: null,
+        error: true,
+      });
     }
 
     const valid_password = await bcrypt.compare(password, user_.password);
     if (!valid_password) {
-      return res
-        .status(401)
-        .json({
-          msg: "Correo o contraseña incorrectos",
-          data: null,
-          error: true,
-        });
+      return res.status(401).json({
+        msg: "Correo o contraseña incorrectos",
+        data: null,
+        error: true,
+      });
     }
 
     const token = jwt.sign(
@@ -59,4 +55,59 @@ const login_user = async (req, res) => {
   }
 };
 
-module.exports = { login_user };
+const register_user = async (req, res) => {
+  try {
+    const { email, phone, password, confirm_password } = req.body;
+
+    if (!email || !phone || !password || !confirm_password) {
+      return res
+        .status(400)
+        .json({ msg: "Faltan campos obligatorios", error: true });
+    }
+
+    if (phone.length !== 9 || isNaN(phone)) {
+      return res
+        .status(400)
+        .json({ msg: "Número de teléfono inválido", error: true });
+    }
+
+    if (password !== confirm_password) {
+      return res
+        .status(400)
+        .json({ msg: "Las contraseñas no coinciden", error: true });
+    }
+
+    const existing_user = await user.findOne({ where: { email } });
+    if (existing_user) {
+      return res
+        .status(400)
+        .json({ msg: "El correo ya está registrado", error: true });
+    }
+
+    const hashed_password = await bcrypt.hash(password, 10);
+
+    const new_user = await user.create({
+      email,
+      phone,
+      password: hashed_password,
+    });
+
+    return res.status(201).json({
+      msg: "Usuario registrado exitosamente",
+      data: {
+        user_id: new_user.user_id,
+        email: new_user.email,
+        phone: new_user.phone,
+      },
+      error: false,
+    });
+  } catch (error) {
+    console.error("Error en register_user:", error);
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
+  }
+};
+
+module.exports = {
+  login_user,
+  register_user,
+};
