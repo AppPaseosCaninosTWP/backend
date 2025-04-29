@@ -39,6 +39,14 @@ module.exports = {
         onUpdate: "CASCADE",
         onDelete: "SET NULL",
       },
+      reset_code: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      reset_code_expires: {
+        type: Sequelize.DATE,
+        allowNull: true,
+      },
     });
   },
 
