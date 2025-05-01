@@ -85,6 +85,36 @@ const get_profile_by_id = async (req, res) => {
   }
 };
 
+const update_walker_profile = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const profile = await walker_profile.findByPk(id);
+  
+      if (!profile) {
+        return res
+          .status(404)
+          .json({ msg: "perfil no encontrado", error: true });
+      }
+  
+      if (req.user.role_id !== 1 && req.user.user_id != id) {
+        return res
+          .status(403)
+          .json({ msg: "acceso denegado", error: true });
+      }
+  
+      await profile.update(req.body);
+  
+      res.json({
+        msg: "perfil actualizado exitosamente",
+        data: profile,
+        error: false,
+      });
+    } catch (error) {
+      console.error("error en update_walker_profile:", error);
+      res.status(500).json({ msg: "error en el servidor", error: true });
+    }
+  };
+
 module.exports = {
   create_walker_profile,
   get_all_profiles,
