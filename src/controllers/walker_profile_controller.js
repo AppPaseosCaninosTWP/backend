@@ -1,7 +1,7 @@
 const { walker_profile, user } = require("../models/database");
 
 const create_walker_profile = async (req, res) => {
-  try { 
+  try {
     const {
       walker_id,
       name,
@@ -43,6 +43,44 @@ const create_walker_profile = async (req, res) => {
     });
   } catch (error) {
     console.error("error en create_walker_profile:", error);
+    res.status(500).json({ msg: "error en el servidor", error: true });
+  }
+};
+
+const get_all_profiles = async (req, res) => {
+  try {
+    const profiles = await walker_profile.findAll();
+    res.json({
+      msg: "perfiles de paseadores obtenidos exitosamente",
+      data: profiles,
+      error: false,
+    });
+  } catch (error) {
+    console.error("error en get_all_profiles:", error);
+    res.status(500).json({ msg: "error en el servidor", error: true });
+  }
+};
+
+const get_profile_by_id = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const profile = await walker_profile.findByPk(id);
+
+    if (!profile) {
+      return res.status(404).json({ msg: "perfil no encontrado", error: true });
+    }
+
+    if (req.user.role_id !== 1 && req.user.user_id != id) {
+      return res.status(403).json({ msg: "acceso denegado", error: true });
+    }
+
+    res.json({
+      msg: "perfil encontrado exitosamente",
+      data: profile,
+      error: false,
+    });
+  } catch (error) {
+    console.error("error en get_profile_by_id:", error);
     res.status(500).json({ msg: "error en el servidor", error: true });
   }
 };
