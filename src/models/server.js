@@ -7,6 +7,7 @@ const validate_jwt = require("../middlewares/validate_jwt");
 const auth_routes = require("../routes/auth/auth.routes");
 const user_routes = require("../routes/user/user.routes");
 const pet_routes = require("../routes/pet/pet.routes");
+const walker_profile_routes = require("../routes/walker/walker_profile.routes");
 
 class Server {
   constructor() {
@@ -17,6 +18,7 @@ class Server {
       auth: "/api/auth",
       user: "/api/user",
       pet: "/api/pet",
+      walker_profile: "/api/walker_profile",
     };
 
     this.dbConnection();
@@ -50,6 +52,7 @@ class Server {
     this.app.use(this.paths.auth, auth_routes);
     this.app.use(this.paths.user, user_routes);
     this.app.use(this.paths.pet, pet_routes);
+    this.app.use(this.paths.walker_profile, walker_profile_routes);
   }
 
   listen() {
