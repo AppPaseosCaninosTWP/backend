@@ -1,7 +1,7 @@
 "use strict";
 
 module.exports = (sequelize, DataTypes) => {
-  const Walk = sequelize.define(
+  const walk = sequelize.define(
     "walk",
     {
       walk_id: {
@@ -34,15 +34,15 @@ module.exports = (sequelize, DataTypes) => {
     }
   );
 
-  Walk.associate = (models) => {
-    Walk.belongsTo(models.user, { as: "client", foreignKey: "client_id" });
-    Walk.belongsTo(models.user, { as: "walker", foreignKey: "walker_id" });
-    Walk.belongsTo(models.walk_type, { foreignKey: "walk_type_id" });
-    Walk.belongsTo(models.request_announcement, { foreignKey: "request_id" });
-
-    Walk.hasMany(models.pet_walk, { foreignKey: "walk_id" });
-    Walk.hasMany(models.payment, { foreignKey: "walk_id" });
+  walk.associate = (models) => {
+    walk.belongsTo(models.user, { as: "client", foreignKey: "client_id" });
+    walk.belongsTo(models.user, { as: "walker", foreignKey: "walker_id" });
+    walk.belongsTo(models.walk_type, { foreignKey: "walk_type_id" });
+    //Asociaciones con entidades futuras
+    //walk.belongsTo(models.request_announcement, { foreignKey: "request_id" });
+    //walk.hasMany(models.pet_walk, { foreignKey: "walk_id" });
+    walk.hasMany(models.payment, { foreignKey: "walk_id" });
   };
 
-  return Walk;
+  return walk;
 };
