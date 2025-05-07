@@ -6,7 +6,7 @@ module.exports = {
       walk_type_id: {
         type: Sequelize.INTEGER,
         primaryKey: true,
-        autoIncrement: true,
+        autoIncrement: false,
       },
       name: Sequelize.STRING,
     });
