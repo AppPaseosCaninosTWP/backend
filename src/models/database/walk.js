@@ -36,6 +36,7 @@ module.exports = (sequelize, DataTypes) => {
     walk.belongsTo(models.walk_type, { foreignKey: "walk_type_id" });
     walk.hasMany(models.pet_walk, { foreignKey: "walk_id" });
     walk.hasMany(models.payment, { foreignKey: "walk_id" });
+    walk.hasMany(models.days_walk, { foreignKey: "walk_id", as: "days" });
   };
 
   return walk;
