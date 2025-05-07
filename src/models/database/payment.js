@@ -1,7 +1,7 @@
 "use strict";
 
 module.exports = (sequelize, DataTypes) => {
-    const Payment = sequelize.define('payment', {
+    const payment = sequelize.define('payment', {
       payment_id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
@@ -19,10 +19,10 @@ module.exports = (sequelize, DataTypes) => {
       timestamps: false
     });
   
-    Payment.associate = models => {
-      Payment.belongsTo(models.walk, { foreignKey: 'walk_id' });
+    payment.associate = models => {
+      payment.belongsTo(models.walk, { foreignKey: 'walk_id' });
     };
   
-    return Payment;
+    return payment;
   };
   
