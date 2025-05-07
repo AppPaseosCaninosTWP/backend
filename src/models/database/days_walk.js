@@ -1,7 +1,7 @@
 "use strict";
 
 module.exports = (sequelize, DataTypes) => {
-  const DaysWalk = sequelize.define(
+  const days_walk = sequelize.define(
     "days_walk",
     {
       walk_id: {
@@ -19,9 +19,9 @@ module.exports = (sequelize, DataTypes) => {
     }
   );
 
-  DaysWalk.associate = (models) => {
-    DaysWalk.belongsTo(models.walk, { foreignKey: "walk_id" });
+  days_walk.associate = (models) => {
+    days_walk.belongsTo(models.walk, { foreignKey: "walk_id" });
   };
 
-  return DaysWalk;
+  return days_walk;
 };
