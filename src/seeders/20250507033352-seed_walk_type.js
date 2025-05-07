@@ -8,9 +8,9 @@ module.exports = {
     ]);
   },
 
-  down: async (queryInterface) => {
-    await queryInterface.bulkDelete('walk_type', {
-      walk_type_id: { [queryInterface.sequelize.Op.in]: [1, 2] }
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.bulkDelete("walk_type", {
+      walk_type_id: { [Sequelize.Op.in]: [1, 2] }
     });
   }
 };
