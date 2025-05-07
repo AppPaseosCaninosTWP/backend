@@ -22,7 +22,7 @@ module.exports = {
       },
       walker_id: {
         type: Sequelize.INTEGER,
-        allowNull: false,
+        allowNull: true,
         references: { model: "user", key: "user_id" },
       },
     });

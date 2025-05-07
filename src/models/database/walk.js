@@ -21,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       walker_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
       },
     },
     {
