@@ -8,8 +8,6 @@ const validate_jwt = require("../../middlewares/validate_jwt");
 const router = Router();
 
 router.post("/login", login_user);
-
-console.log("Cargando ruta: POST /register");
 router.post("/register", register_user);
 
 router.get("/verify", validate_jwt, (req, res) => {
