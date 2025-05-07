@@ -72,8 +72,8 @@ const get_all_walks = async (req, res) => {
       condition = {
         [Op.or]: [
           { walker_id: user_id },
-          { status: "pendiente", walker_id: null }
-        ]
+          { status: "pendiente", walker_id: null },
+        ],
       };
     }
 
@@ -83,38 +83,39 @@ const get_all_walks = async (req, res) => {
         {
           model: user,
           as: "client",
-          attributes: ["email"]
+          attributes: ["email"],
         },
         {
           model: user,
           as: "walker",
-          attributes: ["email"]
+          attributes: ["email"],
         },
         {
           model: walk_type,
-          attributes: ["name"]
+          attributes: ["name"],
         },
         {
           model: days_walk,
-          as: "days"
-        }
+          as: "days",
+        },
       ],
       limit,
       offset,
-      order: [["walk_id", "DESC"]]
+      order: [["walk_id", "DESC"]],
     });
 
-    const data = rows.map(w => ({
+    const data = rows.map((w) => ({
       walk_id: w.walk_id,
       walk_type: w.walk_type?.name,
       status: w.status,
       client_email: w.client?.email,
       walker_email: w.walker?.email ?? null,
-      days: w.days?.map(d => ({
-        start_date: d.start_date,
-        start_time: d.start_time,
-        duration: d.duration
-      })) ?? []
+      days:
+        w.days?.map((d) => ({
+          start_date: d.start_date,
+          start_time: d.start_time,
+          duration: d.duration,
+        })) ?? [],
     }));
 
     return res.json({
@@ -123,11 +124,90 @@ const get_all_walks = async (req, res) => {
       total: count,
       page,
       limit,
-      error: false
+      error: false,
     });
   } catch (error) {
     console.error("Error en get_all_walks:", error);
     return res.status(500).json({ msg: "Error en el servidor", error: true });
+  }
+};
+
+const get_walk_by_id = async (req, res) => {
+  const { id } = req.params;
+  const { user_id, role_id } = req.user;
+
+  try {
+    const w = await walk.findByPk(id, {
+      include: [
+        {
+          model: user,
+          as: "client",
+          attributes: ["user_id", "email", "phone"],
+        },
+        {
+          model: user,
+          as: "walker",
+          attributes: ["user_id", "email", "phone"],
+        },
+        {
+          model: walk_type,
+          attributes: ["walk_type_id", "name"],
+        },
+        {
+          model: pet_walk,
+          include: [{ model: pet }],
+        },
+        {
+          model: days_walk,
+          as: "days",
+        },
+      ],
+    });
+
+    if (!w) {
+      return res.status(404).json({
+        msg: "Paseo no encontrado",
+        error: true,
+      });
+    }
+
+    const isAdmin = role_id === 1;
+    const isClientOwner = role_id === 3 && w.client_id === user_id;
+    const isWalkerAssigned = role_id === 2 && w.walker_id === user_id;
+    const isWalkerPending =
+      role_id === 2 && w.status === "pendiente" && w.walker === null;
+
+    if (!isAdmin && !isClientOwner && !isWalkerAssigned && !isWalkerPending) {
+      return res.status(403).json({
+        msg: "No tienes permiso para ver este paseo",
+        error: true,
+      });
+    }
+
+    const pets = w.pet_walks?.map((pw) => pw.pet) || [];
+
+    const walkData = {
+      walk_id: w.walk_id,
+      walk_type: w.walk_type,
+      status: w.status,
+      comments: w.comments,
+      client: w.client,
+      walker: w.walker,
+      pets,
+      days: w.days,
+    };
+
+    return res.json({
+      msg: "Paseo obtenido exitosamente",
+      data: walkData,
+      error: false,
+    });
+  } catch (error) {
+    console.error("Error en get_walk_by_id:", error);
+    return res.status(500).json({
+      msg: "Error en el servidor",
+      error: true,
+    });
   }
 };
 
