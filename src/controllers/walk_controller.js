@@ -57,6 +57,80 @@ const create_walk = async (req, res) => {
   }
 };
 
+const get_all_walks = async (req, res) => {
+  const { user_id, role_id } = req.user;
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    let condition = {};
+
+    if (role_id === 3) {
+      condition.client_id = user_id;
+    } else if (role_id === 2) {
+      condition = {
+        [Op.or]: [
+          { walker_id: user_id },
+          { status: "pendiente", walker_id: null }
+        ]
+      };
+    }
+
+    const { count, rows } = await walk.findAndCountAll({
+      where: condition,
+      include: [
+        {
+          model: user,
+          as: "client",
+          attributes: ["email"]
+        },
+        {
+          model: user,
+          as: "walker",
+          attributes: ["email"]
+        },
+        {
+          model: walk_type,
+          attributes: ["name"]
+        },
+        {
+          model: days_walk,
+          as: "days"
+        }
+      ],
+      limit,
+      offset,
+      order: [["walk_id", "DESC"]]
+    });
+
+    const data = rows.map(w => ({
+      walk_id: w.walk_id,
+      walk_type: w.walk_type?.name,
+      status: w.status,
+      client_email: w.client?.email,
+      walker_email: w.walker?.email ?? null,
+      days: w.days?.map(d => ({
+        start_date: d.start_date,
+        start_time: d.start_time,
+        duration: d.duration
+      })) ?? []
+    }));
+
+    return res.json({
+      msg: "Paseos obtenidos exitosamente",
+      data,
+      total: count,
+      page,
+      limit,
+      error: false
+    });
+  } catch (error) {
+    console.error("Error en get_all_walks:", error);
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
+  }
+};
+
 module.exports = {
   create_walk,
   get_all_walks,
