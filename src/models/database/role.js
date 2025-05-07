@@ -7,7 +7,7 @@ module.exports = (sequelize, DataTypes) => {
       role_id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
-        autoIncrement: true,
+        autoIncrement: false,
       },
       name: {
         type: DataTypes.STRING,
