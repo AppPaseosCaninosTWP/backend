@@ -1,13 +1,13 @@
 "use strict";
 
 module.exports = (sequelize, DataTypes) => {
-  const WalkType = sequelize.define(
+  const walkType = sequelize.define(
     "walk_type",
     {
       walk_type_id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
-        autoIncrement: true,
+        autoIncrement: false,
       },
       name: DataTypes.STRING,
     },
@@ -17,9 +17,9 @@ module.exports = (sequelize, DataTypes) => {
     }
   );
 
-  WalkType.associate = (models) => {
-    WalkType.hasMany(models.walk, { foreignKey: "walk_type_id" });
+  walkType.associate = (models) => {
+    walkType.hasMany(models.walk, { foreignKey: "walk_type_id" });
   };
 
-  return WalkType;
+  return walkType;
 };
