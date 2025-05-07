@@ -18,6 +18,6 @@ module.exports = {
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.bulkDelete("walker_profile", { walker_id: 5 });
+    await queryInterface.bulkDelete("walker_profile", { walker_id: 2 });
   },
 };
