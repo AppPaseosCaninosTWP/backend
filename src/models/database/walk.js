@@ -23,10 +23,6 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      request_id: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
     },
     {
       tableName: "walk",
@@ -38,8 +34,6 @@ module.exports = (sequelize, DataTypes) => {
     walk.belongsTo(models.user, { as: "client", foreignKey: "client_id" });
     walk.belongsTo(models.user, { as: "walker", foreignKey: "walker_id" });
     walk.belongsTo(models.walk_type, { foreignKey: "walk_type_id" });
-    //Asociaciones con entidades futuras
-    //walk.belongsTo(models.request_announcement, { foreignKey: "request_id" });
     //walk.hasMany(models.pet_walk, { foreignKey: "walk_id" });
     walk.hasMany(models.payment, { foreignKey: "walk_id" });
   };
