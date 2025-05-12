@@ -6,23 +6,43 @@ const login_user = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user_ = await user.findOne({
-      where: { email },
-      include: { association: "role" },
-    });
-
-    if (!user_) {
-      return res.status(404).json({
-        msg: "Correo o contraseña incorrectos",
+    // Validar campos obligatorios
+    if (!email || !password) {
+      return res.status(400).json({
+        msg: "Email y contraseña son obligatorios",
         data: null,
         error: true,
       });
     }
 
+    const user_ = await user.findOne({
+      where: { email },
+      include: { association: "role" },
+    });
+
+    // Validar que el usuario exista
+    if (!user_) {
+      return res.status(404).json({
+        msg: "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
+        data: null,
+        error: true,
+      });
+    }
+
+    // Validar que el usuario esté habilitado
+    if (!user_.is_enable) {
+      return res.status(403).json({
+        msg: "Usuario deshabilitado. Contacte soporte.",
+        data: null,
+        error: true,
+      });
+    }
+
+    // Validar que la contraseña sea correcta
     const valid_password = await bcrypt.compare(password, user_.password);
     if (!valid_password) {
       return res.status(401).json({
-        msg: "Correo o contraseña incorrectos",
+        msg: "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
         data: null,
         error: true,
       });
@@ -34,6 +54,9 @@ const login_user = async (req, res) => {
       { expiresIn: "4h" }
     );
 
+    // Return user data and token
+    // El token en el frontend se guardará en el localStorage o sessionStorage
+    // y se enviará en el header Authorization para las peticiones a la API
     return res.json({
       msg: "Inicio de sesión exitoso",
       data: {
