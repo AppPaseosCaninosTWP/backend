@@ -13,7 +13,47 @@ const create_pet = async (req, res) => {
       photo,
     } = req.body;
 
-    const owner_id = req.user.user_id;
+    const owner_id = req.user.user_id; // El usuario logueado se obtiene del token
+
+    // Validar campos obligatorios
+    if (!name || !age || !zone || !photo) {
+      return res.status(400).json({
+        msg: "Los campos nombre, edad, sector y fotografía son obligatorios",
+        error: true,
+      });
+    }
+
+    // Validar longitud del nombre
+    if (name.length > 25) {
+      return res.status(400).json({
+        msg: "El nombre no puede exceder los 25 caracteres",
+        error: true,
+      });
+    }
+
+    // Validar longitud de la raza (opcional)
+    if (breed && breed.length > 25) {
+      return res.status(400).json({
+        msg: "La raza no puede exceder los 25 caracteres",
+        error: true,
+      });
+    }
+
+    // Validar longitud de los comentarios (opcional)
+    if (comments && comments.length > 250) {
+      return res.status(400).json({
+        msg: "Los comentarios no pueden exceder los 250 caracteres",
+        error: true,
+      });
+    }
+
+    // Validar edad (número positivo, máximo 20 años)
+    if (isNaN(age) || age <= 0 || age > 20) {
+      return res.status(400).json({
+        msg: "La edad debe ser un número positivo y no mayor a 20 años",
+        error: true,
+      });
+    }
 
     const new_pet = await pet.create({
       name,
@@ -28,13 +68,13 @@ const create_pet = async (req, res) => {
     });
 
     res.status(201).json({
-      msg: "mascota registrada exitosamente",
+      msg: "Mascota registrada exitosamente",
       data: new_pet,
       error: false,
     });
   } catch (error) {
-    console.error("error en create_pet:", error);
-    res.status(500).json({ msg: "error en el servidor", error: true });
+    console.error("Error en create_pet:", error);
+    res.status(500).json({ msg: "Error en el servidor", error: true });
   }
 };
 
