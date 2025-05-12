@@ -82,24 +82,44 @@ const register_user = async (req, res) => {
   try {
     const { email, phone, password, confirm_password } = req.body;
 
+    // Validar que todos los campos sean obligatorios
     if (!email || !phone || !password || !confirm_password) {
       return res
         .status(400)
-        .json({ msg: "Faltan campos obligatorios", error: true });
+        .json({ msg: "Todos los campos son obligatorios", error: true });
     }
 
+    // Validar formato del correo electrónico
+    const email_regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email_regex.test(email)) {
+      return res
+        .status(400)
+        .json({ msg: "Su correo electrónico no es válido", error: true });
+    }
+
+    // Validar número de teléfono (9 dígitos)
     if (phone.length !== 9 || isNaN(phone)) {
       return res
         .status(400)
         .json({ msg: "Número de teléfono inválido", error: true });
     }
 
+    // Validar largo de la contraseña
+    if (password.length < 8 || password.length > 15) {
+      return res.status(400).json({
+        msg: "El largo de la contraseña debe estar entre 8 y 15 caracteres",
+        error: true,
+      });
+    }
+
+    // Validar que las contraseñas coincidan
     if (password !== confirm_password) {
       return res
         .status(400)
         .json({ msg: "Las contraseñas no coinciden", error: true });
     }
 
+    // Validar que el correo no esté registrado
     const existing_user = await user.findOne({ where: { email } });
     if (existing_user) {
       return res
@@ -107,8 +127,10 @@ const register_user = async (req, res) => {
         .json({ msg: "El correo ya está registrado", error: true });
     }
 
+    // Hashear la contraseña
     const hashed_password = await bcrypt.hash(password, 10);
 
+    // Crear el nuevo usuario
     const new_user = await user.create({
       email,
       phone,
