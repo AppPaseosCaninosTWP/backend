@@ -1,9 +1,10 @@
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-const { user } = require("../models/database");
-const validator = require("validator");
-const { Op }    = require("sequelize");
-
+const jwt        = require("jsonwebtoken");
+const bcrypt     = require("bcryptjs");
+const validator  = require("validator");
+const crypto     = require("crypto");
+const { user }   = require("../models/database");
+const { Op }     = require("sequelize");
+const { send_email } = require("../utils/email_service");
 // ————————————————
 // Inicio de sesión
 // ————————————————
@@ -161,7 +162,102 @@ const register_user = async (req, res) => {
   }
 };
 
+const request_password_reset = async (req, res) => {
+  try {
+    console.log("🛠 request_password_reset body:", req.body);
+
+    const { email } = req.body;
+    if (!email || !validator.isEmail(email)) {
+      console.log("❌ Email inválido:", email);
+      return res.status(400).json({ msg: "Email inválido u obligatorio", error: true });
+    }
+
+    const account = await user.findOne({ where: { email } });
+    console.log("🔎 Cuenta encontrada:", account && account.toJSON());
+
+    if (!account) {
+      return res.status(404).json({ msg: "El correo no se encuentra en el sistema", error: true });
+    }
+
+    const code = crypto.randomInt(100000, 999999).toString();
+    account.reset_code         = code;
+    account.reset_code_expires = new Date(Date.now() + 15 * 60 * 1000);
+    await account.save();
+    console.log("✅ Código y expiración guardados:", code, account.reset_code_expires);
+
+    await send_email(
+    email,
+    "Código para restablecer contraseña",
+    `Tu código es ${code}. Expira en 15 minutos.`
+    );
+    console.log("✉️  Correo enviado a:", email);
+
+    return res.json({ msg: "Código enviado a tu correo", error: false });
+  } catch (err) {
+    console.error("🔥 Error en request_password_reset:", err);
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
+  }
+};
+
+const reset_password = async (req, res) => {
+  try {
+    const { email, code, password, confirm_password } = req.body;
+
+    // 1) Validaciones básicas
+    if (
+      !email ||
+      !code ||
+      !password ||
+      !confirm_password ||
+      !validator.isEmail(email) ||
+      password !== confirm_password ||
+      password.length < 8 ||
+      password.length > 15
+    ) {
+      return res
+        .status(400)
+        .json({ msg: "Datos inválidos u obligatorios", error: true });
+    }
+
+    // 2) Buscar cuenta y comprobar código + expiración
+    const account = await user.findOne({ where: { email } });
+    if (
+      !account ||
+      account.reset_code !== code ||
+      !account.reset_code_expires ||
+      new Date() > account.reset_code_expires
+    ) {
+      return res
+        .status(400)
+        .json({ msg: "Código inválido o expirado", error: true });
+    }
+
+    // 3) Hashear y guardar nueva contraseña
+    account.password           = await bcrypt.hash(password, 10);
+    account.reset_code         = null;
+    account.reset_code_expires = null;
+    await account.save();
+
+    // 4) Notificar al usuario
+    await send_email(
+      email,
+      "Contraseña restablecida",
+      "Tu contraseña ha sido cambiada correctamente."
+    );
+
+    return res.json({
+      msg:   "Contraseña restablecida. Inicia sesión con la nueva contraseña",
+      error: false
+    });
+  } catch (err) {
+    console.error("Error en reset_password:", err);
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
+  }
+};
+
 module.exports = {
   login_user,
   register_user,
+  request_password_reset,
+  reset_password,
 };
