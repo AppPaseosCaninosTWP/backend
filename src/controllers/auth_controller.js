@@ -164,16 +164,12 @@ const register_user = async (req, res) => {
 
 const request_password_reset = async (req, res) => {
   try {
-    console.log("🛠 request_password_reset body:", req.body);
-
     const { email } = req.body;
     if (!email || !validator.isEmail(email)) {
-      console.log("❌ Email inválido:", email);
       return res.status(400).json({ msg: "Email inválido u obligatorio", error: true });
     }
 
     const account = await user.findOne({ where: { email } });
-    console.log("🔎 Cuenta encontrada:", account && account.toJSON());
 
     if (!account) {
       return res.status(404).json({ msg: "El correo no se encuentra en el sistema", error: true });
@@ -183,18 +179,15 @@ const request_password_reset = async (req, res) => {
     account.reset_code         = code;
     account.reset_code_expires = new Date(Date.now() + 15 * 60 * 1000);
     await account.save();
-    console.log("✅ Código y expiración guardados:", code, account.reset_code_expires);
 
     await send_email(
     email,
     "Código para restablecer contraseña",
     `Tu código es ${code}. Expira en 15 minutos.`
     );
-    console.log("✉️  Correo enviado a:", email);
 
     return res.json({ msg: "Código enviado a tu correo", error: false });
   } catch (err) {
-    console.error("🔥 Error en request_password_reset:", err);
     return res.status(500).json({ msg: "Error en el servidor", error: true });
   }
 };
