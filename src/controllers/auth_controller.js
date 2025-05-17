@@ -1,154 +1,163 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { user } = require("../models/database");
+const validator = require("validator");
+const { Op }    = require("sequelize");
 
+// ————————————————
+// Inicio de sesión
+// ————————————————
 const login_user = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    // 1) Sanitizar inputs
+    let { email, password } = req.body;
+    email    = validator.trim(email);
+    password = validator.trim(password);
 
-    // Validar campos obligatorios
+    // 2) Validaciones
+
+    // Campos obligatorios
     if (!email || !password) {
       return res.status(400).json({
-        msg: "Email y contraseña son obligatorios",
-        data: null,
-        error: true,
+        msg:    "Email y contraseña son obligatorios",
+        data:   null,
+        error:  true
       });
     }
 
-    const user_ = await user.findOne({
-      where: { email },
-      include: { association: "role" },
-    });
+    // Formato de email
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({
+        msg:    "Correo electrónico inválido",
+        data:   null,
+        error:  true
+      });
+    }
 
-    // Validar que el usuario exista
+    // 3) Verificar existencia de usuario
+    const user_ = await user.findOne({
+      where:     { email },
+      include:   { association: "role" }
+    });
     if (!user_) {
       return res.status(404).json({
-        msg: "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
-        data: null,
-        error: true,
+        msg:    "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
+        data:   null,
+        error:  true
       });
     }
 
-    // Validar que el usuario esté habilitado
+    // 4) Verificar que el usuario esté habilitado
     if (!user_.is_enable) {
       return res.status(403).json({
-        msg: "Usuario deshabilitado. Contacte soporte.",
-        data: null,
-        error: true,
+        msg:    "Usuario deshabilitado. Contacte soporte.",
+        data:   null,
+        error:  true
       });
     }
 
-    // Validar que la contraseña sea correcta
+    // 5) Verificar contraseña
     const valid_password = await bcrypt.compare(password, user_.password);
     if (!valid_password) {
       return res.status(401).json({
-        msg: "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
-        data: null,
-        error: true,
+        msg:    "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
+        data:   null,
+        error:  true
       });
     }
 
+    // 6) Generar JWT
     const token = jwt.sign(
       { user_id: user_.user_id, role_id: user_.role_id },
       process.env.JWT_SECRET,
       { expiresIn: "4h" }
     );
 
-    // Return user data and token
-    // El token en el frontend se guardará en el localStorage o sessionStorage
-    // y se enviará en el header Authorization para las peticiones a la API
+    // 7) Responder con datos y token
     return res.json({
-      msg: "Inicio de sesión exitoso",
-      data: {
+      msg:    "Inicio de sesión exitoso",
+      data:   {
         user: {
           user_id: user_.user_id,
-          email: user_.email,
-          phone: user_.phone,
-          role: user_.role ? user_.role.name : null,
+          email:   user_.email,
+          phone:   user_.phone,
+          role:    user_.role ? user_.role.name : null
         },
-        token,
+        token
       },
-      error: false,
+      error:  false
     });
   } catch (err) {
-    console.error("Error en login:", err);
-    return res
-      .status(500)
-      .json({ msg: "Error en el servidor", data: null, error: true });
+    console.error("Error en login_user:", err);
+    return res.status(500).json({
+      msg:    "Error en el servidor",
+      data:   null,
+      error:  true
+    });
   }
 };
 
 const register_user = async (req, res) => {
   try {
-    const { email, phone, password, confirm_password } = req.body;
+    // 1) Sanitizar inputs
+    let { email, phone, password, confirm_password } = req.body;
+    email            = validator.trim(email);
+    phone            = validator.trim(phone);
+    password         = validator.trim(password);
+    confirm_password = validator.trim(confirm_password);
 
-    // Validar que todos los campos sean obligatorios
+    // 2) Validaciones
     if (!email || !phone || !password || !confirm_password) {
-      return res
-        .status(400)
-        .json({ msg: "Todos los campos son obligatorios", error: true });
+      return res.status(400).json({ error: true, msg: 'Todos los campos son obligatorios' });
     }
-
-    // Validar formato del correo electrónico
-    const email_regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email_regex.test(email)) {
-      return res
-        .status(400)
-        .json({ msg: "Su correo electrónico no es válido", error: true });
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ error: true, msg: 'Correo electrónico inválido' });
     }
-
-    // Validar número de teléfono (9 dígitos)
-    if (phone.length !== 9 || isNaN(phone)) {
-      return res
-        .status(400)
-        .json({ msg: "Número de teléfono inválido", error: true });
+    if (!/^\d{9}$/.test(phone)) {
+      return res.status(400).json({ error: true, msg: 'El teléfono debe tener 9 dígitos numéricos' });
     }
-
-    // Validar largo de la contraseña
     if (password.length < 8 || password.length > 15) {
-      return res.status(400).json({
-        msg: "El largo de la contraseña debe estar entre 8 y 15 caracteres",
-        error: true,
-      });
+      return res.status(400).json({ error: true, msg: 'La contraseña debe tener entre 8 y 15 caracteres' });
     }
-
-    // Validar que las contraseñas coincidan
+    // validación “mayúscula + número”:
+    // if (!/(?=.*[A-Z])/.test(password) || !/(?=.*\d)/.test(password)) {
+    //   return res.status(400).json({
+    //     error: true,
+    //     msg: 'La contraseña debe incluir al menos una mayúscula y un número'
+    //   });
+    // }
+    if (/\s/.test(password)) {
+      return res.status(400).json({ error: true, msg: 'La contraseña no puede contener espacios' });
+    }
     if (password !== confirm_password) {
-      return res
-        .status(400)
-        .json({ msg: "Las contraseñas no coinciden", error: true });
+      return res.status(400).json({ error: true, msg: 'Las contraseñas no coinciden' });
     }
 
-    // Validar que el correo no esté registrado
-    const existing_user = await user.findOne({ where: { email } });
-    if (existing_user) {
-      return res
-        .status(400)
-        .json({ msg: "El correo ya está registrado", error: true });
-    }
-
-    // Hashear la contraseña
-    const hashed_password = await bcrypt.hash(password, 10);
-
-    // Crear el nuevo usuario
-    const new_user = await user.create({
-      email,
-      phone,
-      password: hashed_password,
+    // 3) Unicidad en BD (email o teléfono)
+    const existing = await user.findOne({
+      where: { [Op.or]: [{ email }, { phone }] }
     });
+    if (existing) {
+      return res.status(400).json({ error: true, msg: 'Email o teléfono ya registrado' });
+    }
 
+    // 4) Hashear y crear
+    const hashed = await bcrypt.hash(password, 10);
+    const new_user = await user.create({ email, phone, password: hashed });
+
+    // 5) Respuesta
     return res.status(201).json({
-      msg: "Usuario registrado exitosamente",
+      error: false,
+      msg: 'Usuario registrado exitosamente',
       data: {
         user_id: new_user.user_id,
         email: new_user.email,
-        phone: new_user.phone,
-      },
-      error: false,
+        phone: new_user.phone
+      }
     });
-  } catch (error) {
-    console.error("Error en register_user:", error);
-    return res.status(500).json({ msg: "Error en el servidor", error: true });
+  } catch (err) {
+    console.error('Error en register_user:', err);
+    return res.status(500).json({ error: true, msg: 'Error en el servidor' });
   }
 };
 
