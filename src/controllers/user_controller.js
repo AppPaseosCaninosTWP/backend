@@ -69,33 +69,61 @@ const get_user_by_id = async (req, res) => {
 
 const update_is_enable = async (req, res) => {
   try {
+    // 1) Solo admin (role_id = 1)
+    if (req.user.role_id !== 1) {
+      return res
+        .status(403)
+        .json({ msg: "Acción no permitida: solo administradores", error: true });
+    }
+
     const { id } = req.params;
-    const { is_enable } = req.body;
+    let { is_enable } = req.body;
 
+    // 2) Normalizar input a booleano
+    // Acepta true, "true", 1, "1" => true; false, "false", 0, "0" => false
+    const truthy = [true, "true", 1, "1"];
+    const falsy  = [false, "false", 0, "0"];
+
+    if (truthy.includes(is_enable)) {
+      is_enable = true;
+    } else if (falsy.includes(is_enable)) {
+      is_enable = false;
+    } else {
+      return res
+        .status(400)
+        .json({ msg: "El campo is_enable debe ser true/false o 1/0", error: true });
+    }
+
+    // 3) Buscar usuario
     const found_user = await user.findByPk(id);
-
     if (!found_user) {
       return res
         .status(404)
-        .json({ msg: "usuario no encontrado", error: true });
+        .json({ msg: "Usuario no encontrado", error: true });
     }
 
-    if (found_user.role_id !== 2 && found_user.role_id !== 3) {
+    // 4) Solo roles 2 y 3
+    if (![2, 3].includes(found_user.role_id)) {
       return res
         .status(403)
-        .json({ msg: "acción no permitida para este rol", error: true });
+        .json({ msg: "No puedes modificar el estado de este rol", error: true });
     }
 
-    await user.update({ is_enable }, { where: { user_id: id } });
+    // 5) Aplicar y guardar
+    found_user.is_enable = is_enable;
+    await found_user.save();
 
-    res.json({
-      msg: "estado de usuario actualizado correctamente",
-      data: { id, is_enable },
-      error: false,
+    return res.json({
+      msg: `Usuario ${is_enable ? "habilitado" : "deshabilitado"} correctamente`,
+      data: { user_id: found_user.user_id, is_enable: found_user.is_enable },
+      error: false
     });
+
   } catch (err) {
     console.error("error en update_is_enable:", err);
-    res.status(500).json({ msg: "error en el servidor", error: true });
+    return res
+      .status(500)
+      .json({ msg: "Error en el servidor", error: true });
   }
 };
 
