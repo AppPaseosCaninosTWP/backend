@@ -8,22 +8,41 @@ const {
 } = require("../models/database");
 const { Op } = require("sequelize");
 
+const dayjs = require("dayjs");
+const { generate_days_for_week } = require("../utils/date_service");
+
 const create_walk = async (req, res) => {
-  const { walk_type_id, pet_id, comments, start_time, duration, days } =
-    req.body;
+  const {
+    walk_type_id,
+    pet_id,
+    comments,
+    start_time,
+    duration,
+    days,
+  } = req.body;
+
   const client_id = req.user.user_id;
 
   try {
     if (!Array.isArray(days) || days.length === 0) {
       return res
         .status(400)
-        .json({ msg: "Debes proporcionar al menos un día para el paseo." });
+        .json({ msg: "Debes seleccionar al menos un día." });
     }
-
     if (!start_time || !duration) {
       return res
         .status(400)
         .json({ msg: "Debes proporcionar hora de inicio y duración." });
+    }
+    if (walk_type_id === 1 && days.length < 2) {
+      return res
+        .status(400)
+        .json({ msg: "Un paseo fijo requiere al menos 2 días." });
+    }
+    if (walk_type_id === 2 && days.length !== 1) {
+      return res
+        .status(400)
+        .json({ msg: "Un paseo esporádico debe tener exactamente 1 día." });
     }
 
     const newWalk = await walk.create({
@@ -33,12 +52,46 @@ const create_walk = async (req, res) => {
       status: "pendiente",
     });
 
-    for (const date of days) {
+    let days_to_insert = [];
+
+    if (walk_type_id === 1) {
+      days_to_insert = generate_days_for_week(days, start_time, duration);
+    } else if (walk_type_id === 2) {
+      const day_map = {
+        lunes: 1,
+        martes: 2,
+        miercoles: 3,
+        jueves: 4,
+        viernes: 5,
+        sabado: 6,
+        domingo: 7,
+      };
+
+      const target_day = day_map[days[0]];
+      if (!target_day) {
+        return res.status(400).json({ msg: "Día inválido." });
+      }
+
+      let start_date = dayjs().startOf("day");
+      while (start_date.isoWeekday() !== target_day) {
+        start_date = start_date.add(1, "day");
+      }
+
+      days_to_insert = [
+        {
+          start_date: start_date.format("YYYY-MM-DD"),
+          start_time,
+          duration,
+        },
+      ];
+    }
+
+    for (const day of days_to_insert) {
       await days_walk.create({
         walk_id: newWalk.walk_id,
-        start_date: date,
-        start_time,
-        duration,
+        start_date: day.start_date,
+        start_time: day.start_time,
+        duration: day.duration,
       });
     }
 
@@ -47,13 +100,13 @@ const create_walk = async (req, res) => {
       pet_id,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       msg: "Paseo creado exitosamente",
       walk_id: newWalk.walk_id,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ msg: "Error al crear el paseo" });
+    console.error("Error en create_walk:", error);
+    return res.status(500).json({ msg: "Error al crear el paseo" });
   }
 };
 
