@@ -14,10 +14,6 @@ module.exports = {
         onUpdate: "CASCADE",
         onDelete: "CASCADE",
       },
-      name: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
       experience: {
         type: Sequelize.INTEGER,
         allowNull: false,

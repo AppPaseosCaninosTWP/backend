@@ -5,11 +5,10 @@ module.exports = {
     await queryInterface.bulkInsert("walker_profile", [
       {
         walker_id: 2,
-        name: "Felipe González",
         experience: 2,
         walker_type: "esporádico",
         zone: "centro",
-        photo: "felipe.jpg",
+        photo: "foto.jpg",
         description: "amante de los animales, especializado en paseos urbanos",
         balance: 0,
         on_review: true,

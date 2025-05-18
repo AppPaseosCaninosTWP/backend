@@ -12,6 +12,7 @@ module.exports = {
       "user",
       [
         {
+          name: "main_admin",
           email: "admin@example.com",
           phone: "999999999",
           password: admin_password,
@@ -20,6 +21,7 @@ module.exports = {
           role_id: 1,
         },
         {
+          name: "main_walker",
           email: "walker@example.com",
           phone: "999999999",
           password: walker_password,
@@ -28,6 +30,7 @@ module.exports = {
           role_id: 2,
         },
         {
+          name: "main_client",
           email: "client@example.com",
           phone: "999999999",
           password: client_password,
