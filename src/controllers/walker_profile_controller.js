@@ -1,13 +1,20 @@
-const validator       = require("validator");
+const validator = require("validator");
 const { walker_profile, user } = require("../models/database");
-
+const { Op } = require("sequelize");
+const bcrypt = require("bcryptjs");
 const ALLOWED_IMAGE_MIMETYPES = ["image/jpeg", "image/png"];
 
 const create_walker_profile = async (req, res) => {
   try {
-    const {
-      walker_id,
+    if (req.user.role_id !== 1) {
+      return res.status(403).json({ msg: "Acción no permitida", error: true });
+    }
+
+    let {
       name,
+      email,
+      phone,
+      password,
       experience,
       walker_type,
       zone,
@@ -15,38 +22,95 @@ const create_walker_profile = async (req, res) => {
       description,
     } = req.body;
 
-    const existing_user = await user.findByPk(walker_id);
-    if (!existing_user || existing_user.role_id !== 3) {
+    // Validaciones básicas
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !password ||
+      !experience ||
+      !walker_type ||
+      !zone ||
+      !photo
+    ) {
       return res
         .status(400)
-        .json({ msg: "usuario inválido o no es paseador", error: true });
+        .json({
+          msg: "Todos los campos obligatorios deben completarse",
+          error: true,
+        });
     }
 
-    const profile_exists = await walker_profile.findByPk(walker_id);
-    if (profile_exists) {
+    if (!validator.isEmail(email)) {
+      return res
+        .status(400)
+        .json({ msg: "Correo electrónico inválido", error: true });
+    }
+
+    if (!/^\d{9}$/.test(phone)) {
+      return res
+        .status(400)
+        .json({
+          msg: "El teléfono debe tener 9 dígitos numéricos",
+          error: true,
+        });
+    }
+
+    if (description && description.length > 250) {
+      return res
+        .status(400)
+        .json({
+          msg: "La descripción no puede exceder 250 caracteres",
+          error: true,
+        });
+    }
+
+    // Verificar duplicados
+    const exists = await user.findOne({
+      where: { [Op.or]: [{ email }, { phone }] },
+    });
+    if (exists) {
       return res
         .status(409)
-        .json({ msg: "el paseador ya tiene un perfil", error: true });
+        .json({ msg: "Email o teléfono ya registrado", error: true });
     }
 
+    // Crear usuario
+    const hashed_password = await bcrypt.hash(password, 10);
+    const new_user = await user.create({
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      password: hashed_password,
+      role_id: 2, // Paseador
+    });
+
+    // Crear perfil de paseador
     const profile = await walker_profile.create({
-      walker_id,
-      name,
+      walker_id: new_user.user_id,
       experience,
       walker_type,
       zone,
       photo,
-      description,
+      description: description?.trim(),
     });
 
-    res.status(201).json({
-      msg: "perfil de paseador creado exitosamente",
-      data: profile,
+    return res.status(201).json({
+      msg: "Usuario paseador y perfil creados exitosamente",
+      data: {
+        user: {
+          user_id: new_user.user_id,
+          name: new_user.name,
+          email: new_user.email,
+          phone: new_user.phone,
+        },
+        profile,
+      },
       error: false,
     });
-  } catch (error) {
-    console.error("error en create_walker_profile:", error);
-    res.status(500).json({ msg: "error en el servidor", error: true });
+  } catch (err) {
+    console.error("Error en create_walker_profile:", err);
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
   }
 };
 
@@ -90,7 +154,7 @@ const get_profile_by_id = async (req, res) => {
 
 const update_walker_profile = async (req, res) => {
   try {
-    const { id }       = req.params;
+    const { id } = req.params;
     const auth_user_id = req.user.user_id;
     const auth_role_id = req.user.role_id;
 
@@ -139,14 +203,14 @@ const update_walker_profile = async (req, res) => {
     if (req.body.phone !== undefined) {
       phone_input = req.body.phone.trim();
       if (!validator.isMobilePhone(phone_input, "any")) {
-        return res
-          .status(400)
-          .json({ msg: "Teléfono inválido", error: true });
+        return res.status(400).json({ msg: "Teléfono inválido", error: true });
       }
     }
 
     // 7) Validar descripción
-    const description_input = (req.body.description ?? profile.description).trim();
+    const description_input = (
+      req.body.description ?? profile.description
+    ).trim();
     if (!description_input) {
       return res
         .status(400)
@@ -155,7 +219,10 @@ const update_walker_profile = async (req, res) => {
     if (description_input.length > 250) {
       return res
         .status(400)
-        .json({ msg: "La descripción no puede exceder 250 caracteres", error: true });
+        .json({
+          msg: "La descripción no puede exceder 250 caracteres",
+          error: true,
+        });
     }
 
     // 8) Guardar en User
@@ -164,21 +231,19 @@ const update_walker_profile = async (req, res) => {
     await user_record.save();
 
     // 9) Guardar en WalkerProfile
-    profile.photo       = photo_filename;
+    profile.photo = photo_filename;
     profile.description = description_input;
-    profile.on_review   = true;        // marcar pendiente
+    profile.on_review = true; // marcar pendiente
     await profile.save();
 
     return res.json({
-      msg:   "Perfil actualizado y pendiente de aprobación",
-      data:  profile,
-      error: false
+      msg: "Perfil actualizado y pendiente de aprobación",
+      data: profile,
+      error: false,
     });
   } catch (err) {
     console.error("Error en update_walker_profile:", err);
-    return res
-      .status(500)
-      .json({ msg: "Error en el servidor", error: true });
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
   }
 };
 
