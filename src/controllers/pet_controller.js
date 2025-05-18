@@ -1,4 +1,7 @@
+// src/controllers/pet_controller.js
+
 const { pet } = require("../models/database");
+const ALLOWED_ZONES = ["norte", "centro", "sur"];
 
 const create_pet = async (req, res) => {
   try {
@@ -12,14 +15,65 @@ const create_pet = async (req, res) => {
       medical_condition,
       photo,
     } = req.body;
-
     const owner_id = req.user.user_id;
 
+    // 1) Campos obligatorios
+    if (!name || age == null || !zone || !photo) {
+      return res.status(400).json({
+        msg:   "Los campos nombre, edad, sector y fotografía son obligatorios",
+        error: true,
+      });
+    }
+
+    // 2) Validar y formatear 'zone'
+    const zone_lower = zone.trim().toLowerCase();
+    if (!ALLOWED_ZONES.includes(zone_lower)) {
+      return res.status(400).json({
+        msg:   "Sector inválido. Opciones: norte, centro, sur",
+        error: true,
+      });
+    }
+    const zone_formatted = zone_lower[0].toUpperCase() + zone_lower.slice(1);
+
+    // 3) Validar nombre
+    if (name.length > 25) {
+      return res.status(400).json({
+        msg:   "El nombre no puede exceder los 25 caracteres",
+        error: true,
+      });
+    }
+
+    // 4) Validar edad
+    const numeric_age = Number(age);
+    if (isNaN(numeric_age) || numeric_age <= 0 || numeric_age > 20) {
+      return res.status(400).json({
+        msg:   "La edad debe ser un número positivo y no mayor a 20 años",
+        error: true,
+      });
+    }
+
+    // 5) Validar raza (opcional)
+    if (breed && breed.length > 25) {
+      return res.status(400).json({
+        msg:   "La raza no puede exceder los 25 caracteres",
+        error: true,
+      });
+    }
+
+    // 6) Validar comentarios (opcional)
+    if (comments && comments.length > 250) {
+      return res.status(400).json({
+        msg:   "Los comentarios no pueden exceder los 250 caracteres",
+        error: true,
+      });
+    }
+
+    // 7) Crear en BD
     const new_pet = await pet.create({
       name,
       breed,
-      age,
-      zone,
+      age:              numeric_age,
+      zone:             zone_formatted,
       description,
       comments,
       medical_condition,
@@ -27,14 +81,17 @@ const create_pet = async (req, res) => {
       owner_id,
     });
 
-    res.status(201).json({
-      msg: "mascota registrada exitosamente",
-      data: new_pet,
+    return res.status(201).json({
+      msg:   "Mascota registrada exitosamente",
+      data:  new_pet,
       error: false,
     });
   } catch (error) {
-    console.error("error en create_pet:", error);
-    res.status(500).json({ msg: "error en el servidor", error: true });
+    console.error("Error en create_pet:", error);
+    return res.status(500).json({
+      msg:   "Error en el servidor",
+      error: true,
+    });
   }
 };
 
@@ -96,26 +153,129 @@ const update_pet = async (req, res) => {
     const { id } = req.params;
     const owner_id = req.user.user_id;
 
+    // 1) Verificar existencia y propiedad
     const found_pet = await pet.findOne({
-      where: { pet_id: id, owner_id },
+      where: { pet_id: id, owner_id }
     });
-
     if (!found_pet) {
       return res
         .status(404)
-        .json({ msg: "mascota no encontrada", error: true });
+        .json({ msg: "Mascota no encontrada", error: true });
     }
 
-    await found_pet.update(req.body);
+    // 2) Extraer sólo los campos que vienen para actualizar
+    const {
+      name,
+      breed,
+      age,
+      zone,
+      description,
+      comments,
+      medical_condition,
+      photo
+    } = req.body;
 
-    res.json({
-      msg: "mascota actualizada exitosamente",
-      data: found_pet,
-      error: false,
+    const updates = {};
+
+    // — name (obligatorio si se envía) —
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res
+          .status(400)
+          .json({ msg: "El nombre no puede quedar vacío", error: true });
+      }
+      if (name.length > 25) {
+        return res
+          .status(400)
+          .json({ msg: "El nombre no puede exceder 25 caracteres", error: true });
+      }
+      updates.name = name;
+    }
+
+    // — age (obligatorio si se envía) —
+    if (age !== undefined) {
+      const numeric_age = Number(age);
+      if (isNaN(numeric_age) || numeric_age <= 0 || numeric_age > 20) {
+        return res.status(400).json({
+          msg:   "La edad debe ser un número positivo y no mayor a 20 años",
+          error: true
+        });
+      }
+      updates.age = numeric_age;
+    }
+
+    // — zone (obligatorio si se envía) —
+    if (zone !== undefined) {
+      const zone_lower = zone.trim().toLowerCase();
+      if (!ALLOWED_ZONES.includes(zone_lower)) {
+        return res.status(400).json({
+          msg:   "Sector inválido. Opciones: norte, centro, sur",
+          error: true
+        });
+      }
+      updates.zone = zone_lower[0].toUpperCase() + zone_lower.slice(1);
+    }
+
+    // — photo (obligatorio si se envía) —
+    if (photo !== undefined) {
+      if (!photo.trim()) {
+        return res
+          .status(400)
+          .json({ msg: "La fotografía no puede quedar vacía", error: true });
+      }
+      updates.photo = photo;
+    }
+
+    // — breed (opcional) —
+    if (breed !== undefined) {
+      if (breed && breed.length > 25) {
+        return res.status(400).json({
+          msg:   "La raza no puede exceder los 25 caracteres",
+          error: true
+        });
+      }
+      updates.breed = breed;
+    }
+
+    // — comments (opcional) —
+    if (comments !== undefined) {
+      if (comments && comments.length > 250) {
+        return res.status(400).json({
+          msg:   "Los comentarios no pueden exceder los 250 caracteres",
+          error: true
+        });
+      }
+      updates.comments = comments;
+    }
+
+    // — description & medical_condition (opcionales) —
+    if (description !== undefined) {
+      updates.description = description;
+    }
+    if (medical_condition !== undefined) {
+      updates.medical_condition = medical_condition;
+    }
+
+    // 3) Si no hay nada para actualizar
+    if (Object.keys(updates).length === 0) {
+      return res
+        .status(400)
+        .json({ msg: "No hay campos para actualizar", error: true });
+    }
+
+    // 4) Aplicar cambios
+    await found_pet.update(updates);
+
+    return res.json({
+      msg:   "Mascota actualizada exitosamente",
+      data:  found_pet,
+      error: false
     });
   } catch (error) {
-    console.error("error en update_pet:", error);
-    res.status(500).json({ msg: "error en el servidor", error: true });
+    console.error("Error en update_pet:", error);
+    return res
+      .status(500)
+      .json({ msg: "Error en el servidor", error: true });
   }
 };
 

@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require("express");
 const cors = require("cors");
 const logger = require("morgan");
@@ -8,7 +10,7 @@ const auth_routes = require("../routes/auth/auth.routes");
 const user_routes = require("../routes/user/user.routes");
 const pet_routes = require("../routes/pet/pet.routes");
 const walker_profile_routes = require("../routes/walker/walker_profile.routes");
-const walk_routes = require("../routes/walk/walk.routes"); 
+const walk_routes = require("../routes/walk/walk.routes");
 
 class Server {
   constructor() {
@@ -40,8 +42,17 @@ class Server {
 
   middlewares() {
     this.app.use(logger("dev"));
-    this.app.use(cors());
     this.app.use(express.json());
+    this.app.use(
+      cors({
+        origin: [
+          "http://localhost:7070",
+          "https://twp.com",
+          "http://10.0.2.2:7070",
+        ],
+        credentials: true,
+      })
+    );
     this.app.use(express.static("public"));
   }
 
