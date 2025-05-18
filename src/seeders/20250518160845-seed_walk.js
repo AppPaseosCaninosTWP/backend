@@ -47,12 +47,13 @@ module.exports = {
       // CONFIRMADO: asignado para mañana
       {
         walk_id: 5,
-        walk_type_id: 1,
+        walk_type_id: 2,
         comments: "Confirmado por Ana para Max",
         status: "confirmado",
         client_id: 11,
-        walker_id: 4,
+        walker_id: 2,
       },
+
     ];
 
     const pet_walks = [
