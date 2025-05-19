@@ -1,4 +1,6 @@
 const { Router } = require("express");
+const upload_image = require("../../middlewares/upload_image");
+
 const {
   create_pet,
   get_pets,
@@ -13,7 +15,7 @@ const router = Router();
 
 router.use(validate_jwt);
 
-router.post("/", allow_roles(1, 2, 3), create_pet);
+router.post("/", allow_roles(1, 2, 3), upload_image.single('photo'), create_pet);
 router.get("/", allow_roles(1, 2, 3), get_pets);
 router.get("/:id", allow_roles(1, 2, 3), get_pet_by_id);
 router.put("/:id", allow_roles(1, 2, 3), update_pet);
