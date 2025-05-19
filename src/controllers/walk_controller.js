@@ -110,6 +110,52 @@ const create_walk = async (req, res) => {
   }
 };
 
+const get_available_walks = async (req, res) => {
+  try {
+    const walks = await walk.findAll({
+      where: { status: "pendiente", walker_id: null },
+      include: [
+        {
+          model: pet,
+          as: "pets",
+          through: { attributes: [] },
+          attributes: ["name","photo","zone"]
+        },
+        {
+          model: walk_type,
+          as: "walk_type",
+          attributes: ["name"]
+        },
+        {
+          model: days_walk,
+          as: "days",
+          attributes: ["start_date","start_time"]
+        }
+      ],
+      order: [["walk_id","DESC"]]
+    });
+
+    const data = walks.map(w => {
+      const p = w.pets[0] || {};
+      const firstDay = w.days[0] || {};
+      return {
+        walk_id:   w.walk_id,
+        pet_name:  p.name,
+        pet_photo: p.photo,
+        sector:    p.zone,
+        walk_type: w.walk_type.name,
+        time:      firstDay.start_time,
+        date:      firstDay.start_date
+      };
+    });
+
+    return res.json({ msg: "Paseos disponibles obtenidos", data, error: false });
+  } catch (err) {
+    console.error("Error en get_available_walks:", err);
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
+  }
+};
+
 const get_all_walks = async (req, res) => {
   const { user_id, role_id } = req.user;
   const page = Number(req.query.page) || 1;
@@ -267,5 +313,6 @@ const get_walk_by_id = async (req, res) => {
 module.exports = {
   create_walk,
   get_all_walks,
+  get_available_walks,
   get_walk_by_id,
 };
