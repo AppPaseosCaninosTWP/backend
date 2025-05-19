@@ -132,32 +132,35 @@ const get_profile_by_id = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1) Recuperar perfil e incluir datos del usuario asociado
+    // 1) Recuperar perfil e incluir datos del Usuario
     const profile = await walker_profile.findByPk(id, {
       include: {
         model: user,
-        as:    "user",
+        as: "user",
         attributes: ["name", "email", "phone"]
       }
     });
-
     if (!profile) {
       return res
         .status(404)
         .json({ msg: "Perfil no encontrado", error: true });
     }
 
-    // 2) Autorización: solo admin o el propio paseador
+    const { role_id, user_id: authUserId } = req.user;
+
+    // 2) Autorización
+    // - Admin (role_id === 1): puede ver cualquier perfil
+    // - Paseador (role_id === 2): sólo su propio perfil
     if (
-      req.user.role_id !== 1 &&
-      !(req.user.role_id === 2 && profile.walker_id === req.user.user_id)
+      role_id !== 1 &&                                 // no es admin
+      !(role_id === 2 && profile.walker_id === authUserId)  // ni es paseador sobre su perfil
     ) {
       return res
         .status(403)
         .json({ msg: "Acceso denegado", error: true });
     }
 
-    // 3) Construir la respuesta incluyendo nombre, email y teléfono
+    // 3) Formatear respuesta
     const result = {
       walker_id:   profile.walker_id,
       name:        profile.user.name,
@@ -173,8 +176,8 @@ const get_profile_by_id = async (req, res) => {
     };
 
     return res.json({
-      msg:  "Perfil encontrado exitosamente",
-      data: result,
+      msg:   "Perfil encontrado exitosamente",
+      data:  result,
       error: false
     });
   } catch (error) {
@@ -187,17 +190,17 @@ const get_profile_by_id = async (req, res) => {
 
 const update_walker_profile = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id }       = req.params;
     const auth_user_id = req.user.user_id;
     const auth_role_id = req.user.role_id;
 
-    // 1) Recuperar el perfil
+    // 1) Recuperar perfil
     const profile = await walker_profile.findByPk(id);
     if (!profile) {
       return res.status(404).json({ msg: "Perfil no encontrado", error: true });
     }
 
-    // 2) Autorización
+    // 2) Autorización: admin o propio paseador
     if (
       auth_role_id !== 1 &&
       !(auth_role_id === 2 && profile.walker_id === auth_user_id)
@@ -205,8 +208,7 @@ const update_walker_profile = async (req, res) => {
       return res.status(403).json({ msg: "Acceso denegado", error: true });
     }
 
-    // 3) Validar foto (si viene nueva)
-    let photo_filename = profile.photo;
+    // 3) Procesar foto (si se envía nueva)
     if (req.file) {
       const { mimetype, filename } = req.file;
       if (!ALLOWED_IMAGE_MIMETYPES.includes(mimetype)) {
@@ -214,69 +216,65 @@ const update_walker_profile = async (req, res) => {
           .status(400)
           .json({ msg: "La fotografía debe ser JPEG o PNG", error: true });
       }
-      photo_filename = filename;
+      profile.photo = filename;
     }
 
-    // 4) Cargar user para email/phone
+    // 4) Cargar registro de usuario para email/phone
     const user_record = await user.findByPk(profile.walker_id);
 
-    // 5) Validar email (si viene)
-    let email_input = user_record.email;
+    // 5) Validar y aplicar email (si viene)
     if (req.body.email !== undefined) {
-      email_input = req.body.email.trim();
-      if (!validator.isEmail(email_input)) {
+      const email = req.body.email.trim();
+      if (!validator.isEmail(email)) {
         return res
           .status(400)
           .json({ msg: "Correo electrónico inválido", error: true });
       }
+      user_record.email = email;
     }
 
-    // 6) Validar teléfono (si viene)
-    let phone_input = user_record.phone;
+    // 6) Validar y aplicar teléfono (si viene)
     if (req.body.phone !== undefined) {
-      phone_input = req.body.phone.trim();
-      if (!validator.isMobilePhone(phone_input, "any")) {
-        return res.status(400).json({ msg: "Teléfono inválido", error: true });
+      const phone = req.body.phone.trim();
+      if (!validator.isMobilePhone(phone, "any")) {
+        return res
+          .status(400)
+          .json({ msg: "Teléfono inválido", error: true });
       }
+      user_record.phone = phone;
     }
 
-    // 7) Validar descripción
-    const description_input = (
-      req.body.description ?? profile.description
-    ).trim();
-    if (!description_input) {
-      return res
-        .status(400)
-        .json({ msg: "La descripción es obligatoria", error: true });
-    }
-    if (description_input.length > 250) {
-      return res
-        .status(400)
-        .json({
-          msg: "La descripción no puede exceder 250 caracteres",
-          error: true,
-        });
+    // 7) Validar y aplicar descripción (si viene)
+    if (req.body.description !== undefined) {
+      const description = req.body.description.trim();
+      if (!description) {
+        return res
+          .status(400)
+          .json({ msg: "La descripción no puede quedar vacía", error: true });
+      }
+      if (description.length > 250) {
+        return res
+          .status(400)
+          .json({ msg: "La descripción no puede exceder 250 caracteres", error: true });
+      }
+      profile.description = description;
     }
 
-    // 8) Guardar en User
-    user_record.email = email_input;
-    user_record.phone = phone_input;
+    // 8) Guardar cambios
     await user_record.save();
-
-    // 9) Guardar en WalkerProfile
-    profile.photo = photo_filename;
-    profile.description = description_input;
-    profile.on_review = true; // marcar pendiente
+    profile.on_review = true;  // volver a marcar pendiente
     await profile.save();
 
     return res.json({
-      msg: "Perfil actualizado y pendiente de aprobación",
-      data: profile,
+      msg:   "Perfil actualizado y pendiente de aprobación",
+      data:  profile,
       error: false,
     });
   } catch (err) {
     console.error("Error en update_walker_profile:", err);
-    return res.status(500).json({ msg: "Error en el servidor", error: true });
+    return res
+      .status(500)
+      .json({ msg: "Error en el servidor", error: true });
   }
 };
 
