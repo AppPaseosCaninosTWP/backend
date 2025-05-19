@@ -2,3 +2,4 @@
 .env
 twp.db.sqlite
 twp_db.sqlite
+uploads/

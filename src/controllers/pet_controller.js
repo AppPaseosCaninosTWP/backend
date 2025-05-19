@@ -3,6 +3,9 @@
 const { pet } = require("../models/database");
 const ALLOWED_ZONES = ["norte", "centro", "sur"];
 
+const fs = require('fs');
+const path = require('path');
+
 const create_pet = async (req, res) => {
   try {
     const {
@@ -13,14 +16,15 @@ const create_pet = async (req, res) => {
       description,
       comments,
       medical_condition,
-      photo,
     } = req.body;
+
     const owner_id = req.user.user_id;
+    const file = req.file;
 
     // 1) Campos obligatorios
-    if (!name || age == null || !zone || !photo) {
+if (!name || age == null || !zone || !file) {
       return res.status(400).json({
-        msg:   "Los campos nombre, edad, sector y fotografía son obligatorios",
+        msg: 'Los campos nombre, edad, sector y fotografía son obligatorios',
         error: true,
       });
     }
@@ -29,7 +33,7 @@ const create_pet = async (req, res) => {
     const zone_lower = zone.trim().toLowerCase();
     if (!ALLOWED_ZONES.includes(zone_lower)) {
       return res.status(400).json({
-        msg:   "Sector inválido. Opciones: norte, centro, sur",
+        msg: "Sector inválido. Opciones: norte, centro, sur",
         error: true,
       });
     }
@@ -68,16 +72,24 @@ const create_pet = async (req, res) => {
       });
     }
 
+    // Renombrar archivo con extensión real
+    const extension = file.originalname.split('.').pop();
+    const filename_with_ext = `${file.filename}.${extension}`;
+    const old_path = path.join('uploads', file.filename);
+    const new_path = path.join('uploads', filename_with_ext);
+
+    fs.renameSync(old_path, new_path);
+
     // 7) Crear en BD
     const new_pet = await pet.create({
       name,
       breed,
-      age:              numeric_age,
-      zone:             zone_formatted,
+      age: numeric_age,
+      zone: zone_formatted,
       description,
       comments,
       medical_condition,
-      photo,
+      photo: filename_with_ext,
       owner_id,
     });
 
@@ -94,6 +106,9 @@ const create_pet = async (req, res) => {
     });
   }
 };
+
+
+
 
 const get_pets = async (req, res) => {
   try {
