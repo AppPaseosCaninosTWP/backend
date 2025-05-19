@@ -59,9 +59,9 @@ module.exports = {
       walk_id: 6,
       walk_type_id: 1,              // Fijo
       comments: "Paseo fijo semanal para Max",
-      status: "confirmado",
+      status: "pendiente",
       client_id: 7,
-      walker_id: 2,
+      walker_id: null,
     },
     {
       walk_id: 7,
@@ -69,15 +69,15 @@ module.exports = {
       comments: "Paseo esporádico matutino para Rocky",
       status: "pendiente",
       client_id: 8,
-      walker_id: 2,
+      walker_id: null,
     },
     {
       walk_id: 8,
       walk_type_id: 2,              // Esporádico
       comments: "Paseo esporádico vespertino para Bruno",
-      status: "confirmado",
+      status: "pendiente",
       client_id: 9,
-      walker_id: 2,
+      walker_id: null,
     },
 
     ];
