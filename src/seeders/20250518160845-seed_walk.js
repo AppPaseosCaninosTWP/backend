@@ -54,6 +54,32 @@ module.exports = {
         walker_id: 2,
       },
 
+      // --- Paseos nuevos para walker_id = 2 ---
+    {
+      walk_id: 6,
+      walk_type_id: 1,              // Fijo
+      comments: "Paseo fijo semanal para Max",
+      status: "confirmado",
+      client_id: 7,
+      walker_id: 2,
+    },
+    {
+      walk_id: 7,
+      walk_type_id: 2,              // Esporádico
+      comments: "Paseo esporádico matutino para Rocky",
+      status: "pendiente",
+      client_id: 8,
+      walker_id: 2,
+    },
+    {
+      walk_id: 8,
+      walk_type_id: 2,              // Esporádico
+      comments: "Paseo esporádico vespertino para Bruno",
+      status: "confirmado",
+      client_id: 9,
+      walker_id: 2,
+    },
+
     ];
 
     const pet_walks = [
@@ -67,6 +93,10 @@ module.exports = {
 
       { walk_id: 5, pet_id: 15 }, // Daisy (confirmado)
       { walk_id: 5, pet_id: 16 }, // Rocco
+        // --- Asociación de mascotas ---
+      { walk_id: 6, pet_id: 3 },  // Max
+      { walk_id: 7, pet_id: 7 },  // Rocky
+      { walk_id: 8, pet_id: 9 },  // Bruno
     ];
 
     const days_walks = [
@@ -98,6 +128,25 @@ module.exports = {
         walk_id: 5,
         start_date: dayjs().add(3, "day").format("YYYY-MM-DD"),
         start_time: "11:30",
+        duration: 60,
+      },
+      // --- Fechas y horas de los nuevos paseos ---
+      {
+        walk_id: 6,
+        start_date: dayjs().add(4, "day").format("YYYY-MM-DD"),
+        start_time: "09:30",
+        duration: 45,
+      },
+      {
+        walk_id: 7,
+        start_date: dayjs().add(1, "day").format("YYYY-MM-DD"),
+        start_time: "08:00",
+        duration: 30,
+      },
+      {
+        walk_id: 8,
+        start_date: dayjs().add(2, "day").format("YYYY-MM-DD"),
+        start_time: "18:00",
         duration: 60,
       },
     ];
