@@ -43,6 +43,7 @@ class Server {
   middlewares() {
     this.app.use(logger("dev"));
     this.app.use(express.json());
+    this.app.use('/uploads', require('express').static(require('path').join(__dirname, '../../uploads')));
     this.app.use(
       cors({
         origin: [
