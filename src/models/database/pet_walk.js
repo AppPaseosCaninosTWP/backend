@@ -21,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
 
   pet_walk.associate = (models) => {
     pet_walk.belongsTo(models.walk, { foreignKey: "walk_id" });
-    pet_walk.belongsTo(models.pet, { foreignKey: "pet_id" });
+    pet_walk.belongsTo(models.pet,  { foreignKey: "pet_id" });
   };
 
   return pet_walk;

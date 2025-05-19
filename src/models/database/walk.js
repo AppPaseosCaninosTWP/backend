@@ -31,12 +31,20 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   walk.associate = (models) => {
-    walk.belongsTo(models.user, { as: "client", foreignKey: "client_id" });
-    walk.belongsTo(models.user, { as: "walker", foreignKey: "walker_id" });
-    walk.belongsTo(models.walk_type, { foreignKey: "walk_type_id" });
-    walk.hasMany(models.pet_walk, { foreignKey: "walk_id" });
-    walk.hasMany(models.payment, { foreignKey: "walk_id" });
-    walk.hasMany(models.days_walk, { foreignKey: "walk_id", as: "days" });
+    walk.belongsTo(models.user,      { as: "client",    foreignKey: "client_id" });
+    walk.belongsTo(models.user,      { as: "walker",    foreignKey: "walker_id" });
+    walk.belongsTo(models.walk_type, { foreignKey: "walk_type_id", as: "walk_type" });
+
+    // en lugar de hasMany(models.pet_walk), definimos la relación many-to-many:
+    walk.belongsToMany(models.pet, {
+      through: models.pet_walk,
+      foreignKey: "walk_id",
+      otherKey:   "pet_id",
+      as:        "pets"
+    });
+
+    walk.hasMany(models.payment,    { foreignKey: "walk_id" });
+    walk.hasMany(models.days_walk,  { foreignKey: "walk_id", as: "days" });
   };
 
   return walk;
