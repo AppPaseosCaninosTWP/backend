@@ -54,7 +54,14 @@ module.exports = (sequelize, DataTypes) => {
 
   pet.associate = (models) => {
     pet.belongsTo(models.user, { foreignKey: "owner_id", as: "owner" });
-    pet.hasMany(models.pet_walk, { foreignKey: 'pet_id' });
+
+    // en lugar de hasMany(models.pet_walk), definimos la relación many-to-many:
+    pet.belongsToMany(models.walk, {
+      through:  models.pet_walk,
+      foreignKey: "pet_id",
+      otherKey:   "walk_id",
+      as:        "walks"
+    });
   };
 
   return pet;

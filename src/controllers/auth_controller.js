@@ -1,9 +1,9 @@
-const jwt        = require("jsonwebtoken");
-const bcrypt     = require("bcryptjs");
-const validator  = require("validator");
-const crypto     = require("crypto");
-const { user }   = require("../models/database");
-const { Op }     = require("sequelize");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const validator = require("validator");
+const crypto = require("crypto");
+const { user } = require("../models/database");
+const { Op } = require("sequelize");
 const { send_email } = require("../utils/email_service");
 // ————————————————
 // Inicio de sesión
@@ -12,7 +12,7 @@ const login_user = async (req, res) => {
   try {
     // 1) Sanitizar inputs
     let { email, password } = req.body;
-    email    = validator.trim(email);
+    email = validator.trim(email);
     password = validator.trim(password);
 
     // 2) Validaciones
@@ -20,40 +20,40 @@ const login_user = async (req, res) => {
     // Campos obligatorios
     if (!email || !password) {
       return res.status(400).json({
-        msg:    "Email y contraseña son obligatorios",
-        data:   null,
-        error:  true
+        msg: "Email y contraseña son obligatorios",
+        data: null,
+        error: true,
       });
     }
 
     // Formato de email
     if (!validator.isEmail(email)) {
       return res.status(400).json({
-        msg:    "Correo electrónico inválido",
-        data:   null,
-        error:  true
+        msg: "Correo electrónico inválido",
+        data: null,
+        error: true,
       });
     }
 
     // 3) Verificar existencia de usuario
     const user_ = await user.findOne({
-      where:     { email },
-      include:   { association: "role" }
+      where: { email },
+      include: { association: "role" },
     });
     if (!user_) {
       return res.status(404).json({
-        msg:    "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
-        data:   null,
-        error:  true
+        msg: "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
+        data: null,
+        error: true,
       });
     }
 
     // 4) Verificar que el usuario esté habilitado
     if (!user_.is_enable) {
       return res.status(403).json({
-        msg:    "Usuario deshabilitado. Contacte soporte.",
-        data:   null,
-        error:  true
+        msg: "Usuario deshabilitado. Contacte soporte.",
+        data: null,
+        error: true,
       });
     }
 
@@ -61,9 +61,9 @@ const login_user = async (req, res) => {
     const valid_password = await bcrypt.compare(password, user_.password);
     if (!valid_password) {
       return res.status(401).json({
-        msg:    "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
-        data:   null,
-        error:  true
+        msg: "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
+        data: null,
+        error: true,
       });
     }
 
@@ -76,24 +76,24 @@ const login_user = async (req, res) => {
 
     // 7) Responder con datos y token
     return res.json({
-      msg:    "Inicio de sesión exitoso",
-      data:   {
+      msg: "Inicio de sesión exitoso",
+      data: {
         user: {
           user_id: user_.user_id,
-          email:   user_.email,
-          phone:   user_.phone,
-          role:    user_.role ? user_.role.name : null
+          email: user_.email,
+          phone: user_.phone,
+          role: user_.role ? user_.role.name : null,
         },
-        token
+        token,
       },
-      error:  false
+      error: false,
     });
   } catch (err) {
     console.error("Error en login_user:", err);
     return res.status(500).json({
-      msg:    "Error en el servidor",
-      data:   null,
-      error:  true
+      msg: "Error en el servidor",
+      data: null,
+      error: true,
     });
   }
 };
@@ -101,24 +101,47 @@ const login_user = async (req, res) => {
 const register_user = async (req, res) => {
   try {
     // 1) Sanitizar inputs
-    let { email, phone, password, confirm_password } = req.body;
-    email            = validator.trim(email);
-    phone            = validator.trim(phone);
-    password         = validator.trim(password);
+    let { name, email, phone, password, confirm_password } = req.body;
+    name = validator.trim(name);
+    email = validator.trim(email);
+    phone = validator.trim(phone);
+    password = validator.trim(password);
     confirm_password = validator.trim(confirm_password);
 
     // 2) Validaciones
+    if (!name || name.length === 0 || name.length > 50) {
+      return res
+        .status(400)
+        .json({
+          error: true,
+          msg: "El nombre es obligatorio y debe tener máximo 50 caracteres",
+        });
+    }
     if (!email || !phone || !password || !confirm_password) {
-      return res.status(400).json({ error: true, msg: 'Todos los campos son obligatorios' });
+      return res
+        .status(400)
+        .json({ error: true, msg: "Todos los campos son obligatorios" });
     }
     if (!validator.isEmail(email)) {
-      return res.status(400).json({ error: true, msg: 'Correo electrónico inválido' });
+      return res
+        .status(400)
+        .json({ error: true, msg: "Correo electrónico inválido" });
     }
     if (!/^\d{9}$/.test(phone)) {
-      return res.status(400).json({ error: true, msg: 'El teléfono debe tener 9 dígitos numéricos' });
+      return res
+        .status(400)
+        .json({
+          error: true,
+          msg: "El teléfono debe tener 9 dígitos numéricos",
+        });
     }
     if (password.length < 8 || password.length > 15) {
-      return res.status(400).json({ error: true, msg: 'La contraseña debe tener entre 8 y 15 caracteres' });
+      return res
+        .status(400)
+        .json({
+          error: true,
+          msg: "La contraseña debe tener entre 8 y 15 caracteres",
+        });
     }
     // validación “mayúscula + número”:
     // if (!/(?=.*[A-Z])/.test(password) || !/(?=.*\d)/.test(password)) {
@@ -128,37 +151,49 @@ const register_user = async (req, res) => {
     //   });
     // }
     if (/\s/.test(password)) {
-      return res.status(400).json({ error: true, msg: 'La contraseña no puede contener espacios' });
+      return res
+        .status(400)
+        .json({ error: true, msg: "La contraseña no puede contener espacios" });
     }
     if (password !== confirm_password) {
-      return res.status(400).json({ error: true, msg: 'Las contraseñas no coinciden' });
+      return res
+        .status(400)
+        .json({ error: true, msg: "Las contraseñas no coinciden" });
     }
 
     // 3) Unicidad en BD (email o teléfono)
     const existing = await user.findOne({
-      where: { [Op.or]: [{ email }, { phone }] }
+      where: { [Op.or]: [{ email }, { phone }] },
     });
     if (existing) {
-      return res.status(400).json({ error: true, msg: 'Email o teléfono ya registrado' });
+      return res
+        .status(400)
+        .json({ error: true, msg: "Email o teléfono ya registrado" });
     }
 
     // 4) Hashear y crear
     const hashed = await bcrypt.hash(password, 10);
-    const new_user = await user.create({ email, phone, password: hashed });
+    const new_user = await user.create({
+      name,
+      email,
+      phone,
+      password: hashed,
+    });
 
     // 5) Respuesta
     return res.status(201).json({
       error: false,
-      msg: 'Usuario registrado exitosamente',
+      msg: "Usuario registrado exitosamente",
       data: {
         user_id: new_user.user_id,
+        name: new_user.name,
         email: new_user.email,
-        phone: new_user.phone
-      }
+        phone: new_user.phone,
+      },
     });
   } catch (err) {
-    console.error('Error en register_user:', err);
-    return res.status(500).json({ error: true, msg: 'Error en el servidor' });
+    console.error("Error en register_user:", err);
+    return res.status(500).json({ error: true, msg: "Error en el servidor" });
   }
 };
 
@@ -166,24 +201,28 @@ const request_password_reset = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email || !validator.isEmail(email)) {
-      return res.status(400).json({ msg: "Email inválido u obligatorio", error: true });
+      return res
+        .status(400)
+        .json({ msg: "Email inválido u obligatorio", error: true });
     }
 
     const account = await user.findOne({ where: { email } });
 
     if (!account) {
-      return res.status(404).json({ msg: "El correo no se encuentra en el sistema", error: true });
+      return res
+        .status(404)
+        .json({ msg: "El correo no se encuentra en el sistema", error: true });
     }
 
     const code = crypto.randomInt(100000, 999999).toString();
-    account.reset_code         = code;
+    account.reset_code = code;
     account.reset_code_expires = new Date(Date.now() + 15 * 60 * 1000);
     await account.save();
 
     await send_email(
-    email,
-    "Código para restablecer contraseña",
-    `Tu código es ${code}. Expira en 15 minutos.`
+      email,
+      "Código para restablecer contraseña",
+      `Tu código es ${code}. Expira en 15 minutos.`
     );
 
     return res.json({ msg: "Código enviado a tu correo", error: false });
@@ -226,8 +265,8 @@ const reset_password = async (req, res) => {
     }
 
     // 3) Hashear y guardar nueva contraseña
-    account.password           = await bcrypt.hash(password, 10);
-    account.reset_code         = null;
+    account.password = await bcrypt.hash(password, 10);
+    account.reset_code = null;
     account.reset_code_expires = null;
     await account.save();
 
@@ -239,8 +278,8 @@ const reset_password = async (req, res) => {
     );
 
     return res.json({
-      msg:   "Contraseña restablecida. Inicia sesión con la nueva contraseña",
-      error: false
+      msg: "Contraseña restablecida. Inicia sesión con la nueva contraseña",
+      error: false,
     });
   } catch (err) {
     console.error("Error en reset_password:", err);
