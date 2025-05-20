@@ -67,24 +67,54 @@ const get_all_profiles = async (req, res) => {
 const get_profile_by_id = async (req, res) => {
   try {
     const { id } = req.params;
-    const profile = await walker_profile.findByPk(id);
+    // 1. Recuperar el perfil e incluir datos del usuario
+    const progile = await walker_profile.findOne({
+      include: {
+        model: user,
+        as: "user",
+        attributes: ["user_id", "email", "phone"],
+      },
+    });
 
     if (!profile) {
-      return res.status(404).json({ msg: "perfil no encontrado", error: true });
+      return res
+        .status(404)
+        .json({ msg: "Perfil no encontrado", error: true });
     }
 
-    if (req.user.role_id !== 1 && req.user.user_id != id) {
-      return res.status(403).json({ msg: "acceso denegado", error: true });
+    // 2. Autorización solo admin o el propio paseador
+    if(
+      req.user.role_id !== 1 &&
+      !(req.user.role_id === 2 && profile.walker_id === req.user.user_id)
+    ) {
+      return res
+        .status(403)
+        .json({ msg: "Acceso denegado", error: true });
     }
 
-    res.json({
-      msg: "perfil encontrado exitosamente",
-      data: profile,
+    // 3) Construir la respuesta incluyendo datos del usuario
+    const result = {
+      profile_id:   profile.profile_id,
+      walker_id:    profile.walker_id,
+      name:         profile.name,
+      experience:   profile.experience,
+      walker_type:  profile.walker_type,
+      zone:         profile.zone,
+      photo:        profile.photo,
+      description:  profile.description,
+      balance:     profile.balance,
+      on_review:    profile.on_review,
+    };
+    return res.json({
+      msg:   "Perfil encontrado exitosamente",
+      data:  result,
       error: false,
     });
   } catch (error) {
     console.error("error en get_profile_by_id:", error);
-    res.status(500).json({ msg: "error en el servidor", error: true });
+    return res
+      .status(500)
+      .json({ msg: "Error en el servidor", error: true });
   }
 };
 
