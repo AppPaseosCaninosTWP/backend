@@ -119,7 +119,7 @@ const get_available_walks = async (req, res) => {
           model: pet,
           as: "pets",
           through: { attributes: [] },
-          attributes: ["name","photo","zone"]
+          attributes: ["pet_id","name","photo","zone"]
         },
         {
           model: walk_type,
@@ -129,7 +129,12 @@ const get_available_walks = async (req, res) => {
         {
           model: days_walk,
           as: "days",
-          attributes: ["start_date","start_time"]
+          attributes: ["start_date","start_time", "duration"],
+          where: {
+            start_date: {
+              [Op.gte]: dayjs().format("YYYY-MM-DD")
+            }
+          }
         }
       ],
       order: [["walk_id","DESC"]]
@@ -140,12 +145,14 @@ const get_available_walks = async (req, res) => {
       const firstDay = w.days[0] || {};
       return {
         walk_id:   w.walk_id,
+        pet_id:   p.pet_id,
         pet_name:  p.name,
         pet_photo: p.photo,
         sector:    p.zone,
         walk_type: w.walk_type.name,
         time:      firstDay.start_time,
-        date:      firstDay.start_date
+        date:      firstDay.start_date,
+        duration:  firstDay.duration,
       };
     });
 

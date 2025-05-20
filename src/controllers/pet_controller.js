@@ -1,6 +1,6 @@
 // src/controllers/pet_controller.js
 
-const { pet } = require("../models/database");
+const { pet, user} = require("../models/database");
 const ALLOWED_ZONES = ["norte", "centro", "sur"];
 
 const create_pet = async (req, res) => {
@@ -126,9 +126,21 @@ const get_pet_by_id = async (req, res) => {
   try {
     const { id } = req.params;
     const owner_id = req.user.user_id;
+    const whereClause = { pet_id: id };
+
+    if (req.user.role_id === 3) {
+      whereClause.owner_id = req.user.user_id;
+    }
 
     const found_pet = await pet.findOne({
-      where: { pet_id: id, owner_id },
+       where: whereClause,
+  include: [
+    {
+      model: user,
+      as: "owner",
+      attributes: ["user_id","name","email","phone"]
+    }
+  ]
     });
 
     if (!found_pet) {
