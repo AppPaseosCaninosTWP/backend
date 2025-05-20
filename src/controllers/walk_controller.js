@@ -8,7 +8,7 @@ const {
   walker_profile
 } = require("../models/database");
 const { Op } = require("sequelize");
-
+const { sendNotification } = require('../utils/send_notification');
 const dayjs = require("dayjs");
 const { generate_days_for_week } = require("../utils/date_service");
 
@@ -184,6 +184,118 @@ const get_available_walks = async (req, res) => {
   }
 };
 
+const accept_walk = async (req, res) => {
+  const walkerId = req.user.user_id;
+  const { walkId } = req.body;
+
+  const profile = await walker_profile.findOne({
+    where: { walker_id: walkerId },
+  });
+  const allowedZones = profile?.zone
+    .split(',')
+    .map(z => z.trim().toLowerCase()) || [];
+
+  const t = await walk.sequelize.transaction();
+  try {
+    const w = await walk.findOne({
+      where: {
+        walk_id:   walkId,
+        status:    'pendiente',
+        walker_id: { [Op.is]: null },
+      },
+      include: [
+        {
+          model: days_walk,
+          as: 'days',
+          attributes: ['start_date','start_time'],
+        },
+        {
+          model: pet,
+          as: 'pets',
+          through: { attributes: [] },
+          attributes: ['zone'],
+        }
+      ],
+      transaction: t,
+      lock:        t.LOCK.UPDATE,
+    });
+
+    if (!w) {
+      await t.rollback();
+      return res
+        .status(409)
+        .json({ msg: 'Paseo ya fue tomado o no existe', error: true });
+    }
+
+    const p = w.pets[0];
+    if (!p) {
+      await t.rollback();
+      return res
+        .status(400)
+        .json({ msg: 'Este paseo no tiene mascota asociada', error: true });
+    }
+    const walkZone = p.zone.trim().toLowerCase();
+    if (!allowedZones.includes(walkZone)) {
+      await t.rollback();
+      return res
+        .status(403)
+        .json({ msg: 'Zona no permitida para este paseador', error: true });
+    }
+
+    w.walker_id = walkerId;
+    w.status    = 'confirmado';
+    await w.save({ transaction: t });
+    await t.commit();
+
+    sendNotification(w.client_id, {
+      title: 'Tu paseo ha sido aceptado',
+      body:  `El paseador ${req.user.name} aceptó tu paseo #${walkId}.`,
+    });
+
+    return res.json({ msg: 'Paseo aceptado correctamente', error: false });
+  } catch (err) {
+    await t.rollback();
+    console.error('Error en accept_walk:', err);
+    return res
+      .status(500)
+      .json({ msg: 'Error en el servidor', error: true });
+  }
+};
+
+const cancel_walk = async (req, res) => {
+  const walkerId = req.user.user_id;
+  const { walkId } = req.body;
+
+  const w = await walk.findOne({
+    where: { walk_id: walkId, walker_id: walkerId, status: 'confirmado' },
+    include: [{ model: days_walk, as: 'days', attributes: ['start_date','start_time'] }],
+  });
+  if (!w) {
+    return res.status(404).json({ msg: 'Paseo no encontrado o no eres su paseador', error: true });
+  }
+
+  const day0 = w.days[0];
+  const walkDateTime = dayjs(`${day0.start_date} ${day0.start_time}`, 'YYYY-MM-DD HH:mm');
+  if (walkDateTime.diff(dayjs(), 'minute') <= 30) {
+    return res.status(403).json({ msg: 'Ya no puedes cancelar este paseo', error: true });
+  }
+
+  w.status = 'cancelado';
+  await w.save();
+
+  sendNotification(w.client_id, {
+    title: 'Paseo cancelado',
+    body:  `Tu paseo #${walkId} fue cancelado por el paseador.`
+  });
+  sendNotification(walkerId, {
+    title: 'Paseo cancelado',
+    body:  `Cancelaste el paseo #${walkId}.`
+  });
+
+  return res.json({ msg: 'Paseo cancelado exitosamente', error: false });
+};
+
+
 const get_all_walks = async (req, res) => {
   const { user_id, role_id } = req.user;
   const page = Number(req.query.page) || 1;
@@ -343,4 +455,6 @@ module.exports = {
   get_all_walks,
   get_available_walks,
   get_walk_by_id,
+  accept_walk,
+  cancel_walk,
 };
