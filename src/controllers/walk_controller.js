@@ -183,11 +183,8 @@ const create_walk = async (req, res) => {
       };
 
       const target_day = day_map[days[0]];
-      if (!target_day) {
-        return res.status(400).json({ msg: "Día inválido." });
-      }
-
       let start_date = dayjs().startOf("day");
+
       while (start_date.isoWeekday() !== target_day) {
         start_date = start_date.add(1, "day");
       }
@@ -201,6 +198,7 @@ const create_walk = async (req, res) => {
       ];
     }
 
+    // Crear dias del paseo
     for (const day of days_to_insert) {
       await days_walk.create({
         walk_id: newWalk.walk_id,
@@ -215,44 +213,85 @@ const create_walk = async (req, res) => {
       pet_id,
     });
 
-    return res.status(201).json({
-      msg: "Paseo creado exitosamente",
-      walk_id: newWalk.walk_id,
-    });
+    return res
+      .status(201)
+      .json({
+        msg: "Paseo creado exitosamente",
+        walk_id: newWalk.walk_id,
+        error: false
+      });
   } catch (error) {
     console.error("Error en create_walk:", error);
-    return res.status(500).json({ msg: "Error al crear el paseo" });
+    return res
+      .status(500)
+        .json({
+          msg: "Error al crear el paseo",
+          error: true
+        });
   }
 };
 
 const get_available_walks = async (req, res) => {
   try {
-    const walks = await walk.findAll({
-      where: { status: "pendiente", walker_id: null },
-      include: [
-        {
-          model: pet,
-          as: "pets",
-          through: { attributes: [] },
-          attributes: ["pet_id","name","photo","zone"]
-        },
-        {
-          model: walk_type,
-          as: "walk_type",
-          attributes: ["name"]
-        },
-        {
-          model: days_walk,
-          as: "days",
-          attributes: ["start_date","start_time", "duration"],
-          where: {
-            start_date: {
-              [Op.gte]: dayjs().format("YYYY-MM-DD")
-            }
+    // Validar parámetros de búsqueda si existem
+    const { zone, date} = req.query;
+
+    let whereCondition = {
+      status: "pendiente",
+      walker_id: null,
+    };
+
+    let includeConditions = [
+      {
+        model: pet,
+        as: "pets",
+        through: { attributes: [] },
+        attributes: ["pet_id", "name", "photo", "zone"],
+      },
+      {
+        model: walk_type,
+        as: "walk_type",
+        attributes: ["name"],
+      },
+      {
+        model: days_walk,
+        as: "days",
+        attributes: ["start_date", "start_time", "duration"],
+        where: {
+          start_date: {
+            [Op.gte]: dayjs().format("YYYY-MM-DD"),
           }
         }
-      ],
-      order: [["walk_id","DESC"]]
+      }
+    ];
+
+    // Filtrar por sector si se proporciona
+    if (zone) {
+      includeConditions[0].where = {
+        zone: {
+          [Op.iLike]: `%${zone}%`,
+        },
+      };
+    }
+
+    // Filtrar por fecha especifica si se proporciona
+    if (date && dayjs(date).isValid()) {
+      includeConditions[2].where.start_date = {
+        [Op.eq]: dayjs(date).format("YYYY-MM-DD"),
+      };
+    } else if (date) {
+      return res
+        .status(400)
+        .json({
+          msg: "Fecha inválida. Debe estar en formato YYYY-MM-DD.",
+          error: true
+        });
+    }
+
+    const walks = await walk.findAll({
+      where: whereCondition,
+      include: includeConditions,
+      order: [["walk_id", "DESC"]]
     });
 
     const data = walks.map(w => {
@@ -271,10 +310,21 @@ const get_available_walks = async (req, res) => {
       };
     });
 
-    return res.json({ msg: "Paseos disponibles obtenidos", data, error: false });
+    return res
+      .json({ 
+        msg: "Paseos disponibles obtenidos",
+        data,
+        error: false 
+      });
   } catch (err) {
-    console.error("Error en get_available_walks:", err);
-    return res.status(500).json({ msg: "Error en el servidor", error: true });
+    console
+    .error("Error en get_available_walks:", err);
+    return res
+    .status(500)
+    .json({
+      msg: "Error en el servidor",
+      error: true
+    });
   }
 };
 
