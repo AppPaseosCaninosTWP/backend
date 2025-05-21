@@ -431,6 +431,16 @@ const get_walk_by_id = async (req, res) => {
   const { id } = req.params;
   const { user_id, role_id } = req.user;
 
+  // Validar ID
+  if (!id || !validator.isInt(id.toString())) {
+    return res
+      .status(400)
+      .json({
+        msg: "ID de paseo inválido.",
+        error: true
+      });
+  }
+
   try {
     const w = await walk.findByPk(id, {
       include: [
