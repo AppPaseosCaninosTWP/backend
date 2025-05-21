@@ -84,21 +84,40 @@ const create_walk = async (req, res) => {
           error: true
         });
     }
-    if (!start_time || !duration) {
+
+    // Validar dias seleccionados
+    const validDays = [ 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo' ];
+
+    for (const day of days) {
+      if (!validDays.includes(day.toLowerCase())) {
+        return res
+          .status(400)
+          .json({
+            msg: `Día inválido: ${day}.`,
+            error: true
+          });
+      }
+    }
+    
+    // Validar hora de inicio
+    if (!start_time || !validator.matches(start_time, /^([01]\d|2[0-3]):([0-5]\d)$/)) {
       return res
         .status(400)
-        .json({ msg: "Debes proporcionar hora de inicio y duración." });
+        .json({
+          msg: "Hora de inicio inválida. Debe estar en formato HH:mm.",
+          error: true
+        });
     }
-    if (walk_type_id === 1 && days.length < 2) {
+    // Validar duración
+    if (!duration || ![30, 60].includes(parent(duration))) {
       return res
         .status(400)
-        .json({ msg: "Un paseo fijo requiere al menos 2 días." });
+        .json({
+          msg: "Duración inválida. Debe ser 30 o 60 minutos.",
+          error: true
+        });
     }
-    if (walk_type_id === 2 && days.length !== 1) {
-      return res
-        .status(400)
-        .json({ msg: "Un paseo esporádico debe tener exactamente 1 día." });
-    }
+    
 
     const newWalk = await walk.create({
       walk_type_id,
