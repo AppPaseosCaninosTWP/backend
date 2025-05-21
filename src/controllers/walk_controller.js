@@ -118,7 +118,48 @@ const create_walk = async (req, res) => {
         });
     }
     
+    // Validar comentarios (si existen)
+    if (comments && comments.length > 250) {
+      return res
+        .status(400)
+        .json({
+          msg: "Los comentarios no pueden exceder 250 caracteres.",
+          error: true
+        });
+    }
 
+    // Validar hora para paseos esporadicos hoy
+    if (walk_type_id === 2) {
+      const day_map = {
+        lunes: 1, martes: 2, miercoles: 3, jueves: 4,
+        viernes: 5, sabado: 6, domingo: 7,
+      };
+
+      const target_day = day_map[days[0].toLowerCase()];
+      let start_date = dayjs().startOf("day");
+
+      while (start_date.isoWeekday() !== target_day) {
+        start_date = start_date.add(1, "day");
+      }
+
+      // Si es hoy, validar tiempo minimo
+      if (start_date.isSame(dayjs(), "day")) {
+        const [hours, minutes] = start_time.split(":").map(Number);
+        const walkTime = dayjs().set("hour", hours).set("minute", minutes);
+        const minTime = dayjs().add(15, "minute");
+
+        if (walkTime.isBefore(minTime)) {
+          return res
+            .status(400)
+            .json({
+              msg: "Para paseos hoy, debe haber al menos 15 minutos de anticipacion.",
+              error: true
+            });
+        }
+      }
+    }
+
+    // Crear el paseo
     const newWalk = await walk.create({
       walk_type_id,
       client_id,
