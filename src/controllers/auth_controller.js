@@ -125,7 +125,7 @@ const register_user = async (req, res) => {
     if (!validator.isEmail(email)) {
       return res
         .status(400)
-        .json({ error: true, msg: "Correo electrónico inválido" });
+        .json({ error: true, msg: "Su correo electrónico no es válido" });
     }
     if (!/^\d{9}$/.test(phone)) {
       return res
