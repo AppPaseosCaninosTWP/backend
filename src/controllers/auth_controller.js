@@ -140,7 +140,7 @@ const register_user = async (req, res) => {
         .status(400)
         .json({
           error: true,
-          msg: "La contraseña debe tener entre 8 y 15 caracteres",
+          msg: "El largo de la contraseña debe estar entre 8 y 15 caracteres",
         });
     }
     // validación “mayúscula + número”:
