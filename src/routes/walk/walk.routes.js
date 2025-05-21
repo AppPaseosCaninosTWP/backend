@@ -5,6 +5,7 @@ const {
   get_available_walks,
   get_walk_by_id,
   accept_walk,
+  get_assigned_walks,
   cancel_walk,
 } = require("../../controllers/walk_controller");
 const validate_jwt = require("../../middlewares/validate_jwt");
@@ -16,10 +17,10 @@ router.use(validate_jwt);
 router.get("/available", validate_jwt, get_available_walks);
 router.post("/", allow_roles(3), create_walk);
 router.get("/", allow_roles(1, 2, 3), get_all_walks);
-router.get("/:id", allow_roles(1, 2, 3), get_walk_by_id);
+router.get("/assigned", allow_roles(2), get_assigned_walks);
 router.post("/accept",allow_roles(2),accept_walk);
 router.post("/cancel",allow_roles(2),cancel_walk);
-
+router.get("/:id", allow_roles(1, 2, 3), get_walk_by_id);
 
 
 module.exports = router;
