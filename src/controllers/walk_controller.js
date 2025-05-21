@@ -24,10 +24,30 @@ const create_walk = async (req, res) => {
   const client_id = req.user.user_id;
 
   try {
+    //Validaciones Basicas
+    if (!walk_type_id || ![1, 2].includes(paraseInt(walk_type_id))) {
+      return res
+      .status(400)
+      .json({
+        msg: "Tipo de paseo invalido. Debe ser 1(fijo) o 2(esporadico)",
+        error: true,
+      });
+    }
+    if (!pet_id || !validator.isInt(pet_id.toString())) {
+      return res
+      .status(400)
+      .json({
+        msg: "ID de mascota inválido.",
+        error: true,
+      });
+    }
+
+
     if (!Array.isArray(days) || days.length === 0) {
       return res
         .status(400)
-        .json({ msg: "Debes seleccionar al menos un día." });
+        .json({ msg: "Debes seleccionar al menos un día." 
+        });
     }
     if (!start_time || !duration) {
       return res
