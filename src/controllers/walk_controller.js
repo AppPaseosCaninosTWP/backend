@@ -334,6 +334,25 @@ const get_all_walks = async (req, res) => {
   const limit = Number(req.query.limit) || 10;
   const offset = (page - 1) * limit;
 
+  // Validar parámetros de paginación
+  if (isNaN(page) || page < 1) {
+    return res
+      .status(400)
+      .json({
+        msg: "Número de página invalido.",
+        error: true
+      });
+  }
+
+  if (isNaN(limit) || limit < 1) {
+    return res
+      .status(400)
+      .json({
+        msg: "Limite inválido (1-100).",
+        error: true
+      });
+  }
+
   try {
     let condition = {};
 
@@ -399,7 +418,12 @@ const get_all_walks = async (req, res) => {
     });
   } catch (error) {
     console.error("Error en get_all_walks:", error);
-    return res.status(500).json({ msg: "Error en el servidor", error: true });
+    return res
+      .status(500)
+      .json({
+        msg: "Error en el servidor",
+        error: true
+      });
   }
 };
 
