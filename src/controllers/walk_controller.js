@@ -41,7 +41,7 @@ const create_walk = async (req, res) => {
           error: true,
         });
     }
-    
+
     // Validar que la mascota existe y pertenece al cliente
     const petExists = await pet.findOne({
       where: {
@@ -59,10 +59,29 @@ const create_walk = async (req, res) => {
         });
     }
 
+    // Validar dias segun tipo de paseo
     if (!Array.isArray(days) || days.length === 0) {
       return res
         .status(400)
         .json({ msg: "Debes seleccionar al menos un día."
+        });
+    }
+
+    if (walker_type_id === 1 && days.length < 2) {
+      return res
+        .status(400)
+        .json({
+          msg: "Un paseo fijo requiere al menos 2 días.",
+          error: true
+        });
+    }
+
+    if (walker_type_id === 2 && days.length !== 1) {
+      return res
+        .status(400)
+        .json({
+          msg: "Un paseo esporádico debe tener exactamente 1 día.",
+          error: true
         });
     }
     if (!start_time || !duration) {
