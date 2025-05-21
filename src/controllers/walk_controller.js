@@ -344,7 +344,7 @@ const get_all_walks = async (req, res) => {
       });
   }
 
-  if (isNaN(limit) || limit < 1) {
+  if (isNaN(limit) || limit < 1 || limit > 100) {
     return res
       .status(400)
       .json({
@@ -382,6 +382,7 @@ const get_all_walks = async (req, res) => {
         },
         {
           model: walk_type,
+          as: "walk_type",
           attributes: ["name"],
         },
         {
@@ -431,18 +432,48 @@ const get_walk_by_id = async (req, res) => {
   const { id } = req.params;
   const { user_id, role_id } = req.user;
 
-  // Validar ID
-  if (!id || !validator.isInt(id.toString())) {
-    return res
-      .status(400)
-      .json({
-        msg: "ID de paseo inválido.",
-        error: true
-      });
+  if (!id || isNaN(Number(id))) {
+    return res.status(400).json({ 
+      msg: "ID de paseo inválido", 
+      error: true 
+    });
   }
 
   try {
-    const w = await walk.findByPk(id, {
+    // 1. Verificar existencia del paseo y permisos primero
+    const basicWalk = await walk.findByPk(id, {
+      attributes: ['walk_id', 'client_id', 'walker_id', 'status', 'walk_type_id'],
+      include: [{
+        model: walk_type,
+        as: "walk_type",
+        attributes: ["name"]
+      }]
+    });
+
+    if (!basicWalk) {
+      return res.status(404).json({
+        msg: "Paseo no encontrado",
+        error: true,
+      });
+    }
+
+    // 2. Validar permisos
+    const canAccess = (
+      role_id === 1 || // Admin
+      (role_id === 3 && basicWalk.client_id === user_id) || // Dueño
+      (role_id === 2 && (basicWalk.walker_id === user_id || 
+                        (basicWalk.status === "pendiente" && !basicWalk.walker_id))) // Paseador
+    );
+
+    if (!canAccess) {
+      return res.status(403).json({
+        msg: "No tienes permiso para ver este paseo",
+        error: true,
+      });
+    }
+
+    // 3. Obtener datos completos con manejo seguro de asociaciones
+    const fullWalk = await walk.findByPk(id, {
       include: [
         {
           model: user,
@@ -453,65 +484,68 @@ const get_walk_by_id = async (req, res) => {
           model: user,
           as: "walker",
           attributes: ["user_id", "email", "phone"],
+          required: false
         },
         {
           model: walk_type,
+          as: "walk_type",
           attributes: ["walk_type_id", "name"],
-        },
-        {
-          model: pet_walk,
-          include: [{ model: pet }],
         },
         {
           model: days_walk,
           as: "days",
-        },
-      ],
+          attributes: ["start_date", "start_time", "duration"],
+        }
+      ]
     });
 
-    if (!w) {
-      return res.status(404).json({
-        msg: "Paseo no encontrado",
-        error: true,
-      });
-    }
+    // 4. Obtener mascotas por separado para evitar problemas de asociación
+    const petWalks = await pet_walk.findAll({
+      where: { walk_id: id },
+      include: [{
+        model: pet,
+        as: "pet",
+        attributes: ["pet_id", "name", "photo", "zone"]
+      }]
+    });
 
-    const isAdmin = role_id === 1;
-    const isClientOwner = role_id === 3 && w.client_id === user_id;
-    const isWalkerAssigned = role_id === 2 && w.walker_id === user_id;
-    const isWalkerPending =
-      role_id === 2 && w.status === "pendiente" && w.walker === null;
-
-    if (!isAdmin && !isClientOwner && !isWalkerAssigned && !isWalkerPending) {
-      return res.status(403).json({
-        msg: "No tienes permiso para ver este paseo",
-        error: true,
-      });
-    }
-
-    const pets = w.pet_walks?.map((pw) => pw.pet) || [];
-
-    const walkData = {
-      walk_id: w.walk_id,
-      walk_type: w.walk_type,
-      status: w.status,
-      comments: w.comments,
-      client: w.client,
-      walker: w.walker,
-      pets,
-      days: w.days,
+    // 5. Construir respuesta
+    const responseData = {
+      walk_id: fullWalk.walk_id,
+      walk_type: fullWalk.walk_type,
+      status: fullWalk.status,
+      comments: fullWalk.comments || null,
+      client: fullWalk.client || null,
+      walker: fullWalk.walker || null,
+      pets: petWalks.map(pw => pw.pet).filter(Boolean),
+      days: (fullWalk.days || []).map(d => ({
+        start_date: d.start_date,
+        start_time: d.start_time,
+        duration: d.duration
+      }))
     };
 
     return res.json({
       msg: "Paseo obtenido exitosamente",
-      data: walkData,
+      data: responseData,
       error: false,
     });
+
   } catch (error) {
-    console.error("Error en get_walk_by_id:", error);
+    console.error("Error en get_walk_by_id:", {
+      message: error.message,
+      stack: error.stack
+    });
+
     return res.status(500).json({
-      msg: "Error en el servidor",
+      msg: "Error al obtener el paseo",
       error: true,
+      ...(process.env.NODE_ENV === 'development' && {
+        debug: {
+          error: error.name,
+          suggestion: "Verifique las asociaciones entre los modelos walk y pet_walk"
+        }
+      })
     });
   }
 };
