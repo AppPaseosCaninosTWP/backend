@@ -262,6 +262,48 @@ const accept_walk = async (req, res) => {
   }
 };
 
+const get_assigned_walks = async (req, res) => {
+  try {
+    const walkerId = req.user.user_id;
+    const walks = await walk.findAll({
+      where: { walker_id: walkerId, status: 'confirmado' },
+      include: [
+        {
+          model: pet,
+          as: "pets",
+          through: { attributes: [] },
+          attributes: ["pet_id","name","photo","zone"]
+        },
+        {
+          model: days_walk,
+          as: "days",
+          attributes: ["start_date","start_time"]
+        }
+      ],
+      order: [["walk_id","DESC"]]
+    });
+
+    const data = walks.map(w => {
+      const p = w.pets[0] || {};
+      const d = w.days[0] || {};
+      return {
+        walk_id:    w.walk_id,
+        pet_id:     p.pet_id,
+        pet_name:   p.name,
+        pet_photo:  p.photo,
+        zone:       p.zone,
+        time:       d.start_time,
+        date:       d.start_date,
+      };
+    });
+
+    return res.json({ msg:"Paseos asignados", data, error:false });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ msg:"Error en el servidor", error:true });
+  }
+};
+
 const cancel_walk = async (req, res) => {
   const walkerId = req.user.user_id;
   const { walkId } = req.body;
@@ -457,4 +499,5 @@ module.exports = {
   get_walk_by_id,
   accept_walk,
   cancel_walk,
+  get_assigned_walks,
 };
