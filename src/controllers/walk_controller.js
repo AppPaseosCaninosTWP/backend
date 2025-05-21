@@ -8,6 +8,7 @@ const {
 } = require("../models/database");
 const { Op } = require("sequelize");
 
+const validator = require("validator");
 const dayjs = require("dayjs");
 const { generate_days_for_week } = require("../utils/date_service");
 
@@ -24,210 +25,162 @@ const create_walk = async (req, res) => {
   const client_id = req.user.user_id;
 
   try {
-    //Validaciones Basicas
-    if (!walk_type_id || ![1, 2].includes(paraseInt(walk_type_id))) {
-      return res
-        .status(400)
-        .json({
-          msg: "Tipo de paseo invalido. Debe ser 1(fijo) o 2(esporadico)",
-          error: true,
-        });
-    }
-    if (!pet_id || !validator.isInt(pet_id.toString())) {
-      return res
-        .status(400)
-        .json({
-          msg: "ID de mascota inválido.",
-          error: true,
-        });
-    }
-
-    // Validar que la mascota existe y pertenece al cliente
-    const petExists = await pet.findOne({
-      where: {
-        pet_id,
-        user_id: client_id,
-      },
-    });
-
-    if (!petExists) {
-      return res
-        .status(404)
-        .json({
-          msg: "Mascota no encontrada o no pertenece al cliente.",
-          error: true,
-        });
-    }
-
-    // Validar dias segun tipo de paseo
-    if (!Array.isArray(days) || days.length === 0) {
-      return res
-        .status(400)
-        .json({ msg: "Debes seleccionar al menos un día."
-        });
-    }
-
-    if (walker_type_id === 1 && days.length < 2) {
-      return res
-        .status(400)
-        .json({
-          msg: "Un paseo fijo requiere al menos 2 días.",
-          error: true
-        });
-    }
-
-    if (walker_type_id === 2 && days.length !== 1) {
-      return res
-        .status(400)
-        .json({
-          msg: "Un paseo esporádico debe tener exactamente 1 día.",
-          error: true
-        });
-    }
-
-    // Validar dias seleccionados
-    const validDays = [ 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo' ];
-
-    for (const day of days) {
-      if (!validDays.includes(day.toLowerCase())) {
-        return res
-          .status(400)
-          .json({
-            msg: `Día inválido: ${day}.`,
-            error: true
-          });
-      }
-    }
-    
-    // Validar hora de inicio
-    if (!start_time || !validator.matches(start_time, /^([01]\d|2[0-3]):([0-5]\d)$/)) {
-      return res
-        .status(400)
-        .json({
-          msg: "Hora de inicio inválida. Debe estar en formato HH:mm.",
-          error: true
-        });
-    }
-    // Validar duración
-    if (!duration || ![30, 60].includes(parent(duration))) {
-      return res
-        .status(400)
-        .json({
-          msg: "Duración inválida. Debe ser 30 o 60 minutos.",
-          error: true
-        });
-    }
-    
-    // Validar comentarios (si existen)
-    if (comments && comments.length > 250) {
-      return res
-        .status(400)
-        .json({
-          msg: "Los comentarios no pueden exceder 250 caracteres.",
-          error: true
-        });
-    }
-
-    // Validar hora para paseos esporadicos hoy
-    if (walk_type_id === 2) {
-      const day_map = {
-        lunes: 1, martes: 2, miercoles: 3, jueves: 4,
-        viernes: 5, sabado: 6, domingo: 7,
-      };
-
-      const target_day = day_map[days[0].toLowerCase()];
-      let start_date = dayjs().startOf("day");
-
-      while (start_date.isoWeekday() !== target_day) {
-        start_date = start_date.add(1, "day");
-      }
-
-      // Si es hoy, validar tiempo minimo
-      if (start_date.isSame(dayjs(), "day")) {
-        const [hours, minutes] = start_time.split(":").map(Number);
-        const walkTime = dayjs().set("hour", hours).set("minute", minutes);
-        const minTime = dayjs().add(15, "minute");
-
-        if (walkTime.isBefore(minTime)) {
-          return res
-            .status(400)
-            .json({
-              msg: "Para paseos hoy, debe haber al menos 15 minutos de anticipacion.",
-              error: true
-            });
-        }
-      }
-    }
-
-    // Crear el paseo
-    const newWalk = await walk.create({
-      walk_type_id,
-      client_id,
-      comments,
-      status: "pendiente",
-    });
-
-    let days_to_insert = [];
-
-    if (walk_type_id === 1) {
-      days_to_insert = generate_days_for_week(days, start_time, duration);
-    } else if (walk_type_id === 2) {
-      const day_map = {
-        lunes: 1,
-        martes: 2,
-        miercoles: 3,
-        jueves: 4,
-        viernes: 5,
-        sabado: 6,
-        domingo: 7,
-      };
-
-      const target_day = day_map[days[0]];
-      let start_date = dayjs().startOf("day");
-
-      while (start_date.isoWeekday() !== target_day) {
-        start_date = start_date.add(1, "day");
-      }
-
-      days_to_insert = [
-        {
-          start_date: start_date.format("YYYY-MM-DD"),
-          start_time,
-          duration,
-        },
-      ];
-    }
-
-    // Crear dias del paseo
-    for (const day of days_to_insert) {
-      await days_walk.create({
-        walk_id: newWalk.walk_id,
-        start_date: day.start_date,
-        start_time: day.start_time,
-        duration: day.duration,
+    // Validación de tipo de paseo
+    if (![1, 2].includes(parseInt(walk_type_id))) {
+      return res.status(400).json({ 
+        msg: "Tipo de paseo inválido (1: fijo, 2: esporádico)", 
+        error: true 
       });
     }
 
-    await pet_walk.create({
-      walk_id: newWalk.walk_id,
-      pet_id,
+    // Validación de pet_id (sin usar validator)
+    if (!pet_id || isNaN(parseInt(pet_id))) {
+      return res.status(400).json({ 
+        msg: "ID de mascota inválido", 
+        error: true 
+      });
+    }
+
+    // Verificar que la mascota pertenece al usuario
+    const petExists = await pet.findOne({
+      where: {
+        pet_id: parseInt(pet_id),
+        owner_id: client_id 
+      }
     });
 
-    return res
-      .status(201)
-      .json({
+    if (!petExists) {
+      return res.status(404).json({ 
+        msg: "Mascota no encontrada o no pertenece al usuario", 
+        error: true 
+      });
+    }
+
+    // Validar días según tipo de paseo
+    const validDays = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+    
+    if (!Array.isArray(days) || days.length === 0) {
+      return res.status(400).json({ 
+        msg: "Debes seleccionar al menos un día", 
+        error: true 
+      });
+    }
+
+    if (walk_type_id == 1 && days.length < 2) {
+      return res.status(400).json({ 
+        msg: "Un paseo fijo requiere al menos 2 días", 
+        error: true 
+      });
+    }
+
+    if (walk_type_id == 2 && days.length !== 1) {
+      return res.status(400).json({ 
+        msg: "Un paseo esporádico debe tener exactamente 1 día", 
+        error: true 
+      });
+    }
+
+    // Validar formato de hora (sin usar validator)
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(start_time)) {
+      return res.status(400).json({ 
+        msg: "Formato de hora inválido (debe ser HH:MM, 24 horas)", 
+        error: true 
+      });
+    }
+
+    // Validar duración
+    if (![30, 60].includes(parseInt(duration))) {
+      return res.status(400).json({ 
+        msg: "Duración inválida (solo 30 o 60 minutos)", 
+        error: true 
+      });
+    }
+
+    // Validar comentarios (sin usar validator)
+    if (comments && comments.length > 250) {
+      return res.status(400).json({ 
+        msg: "Los comentarios no pueden exceder 250 caracteres", 
+        error: true 
+      });
+    }
+
+    // Crear transacción
+    const transaction = await walk.sequelize.transaction();
+
+    try {
+      // Crear el paseo principal
+      const newWalk = await walk.create({
+        walk_type_id: parseInt(walk_type_id),
+        client_id,
+        comments: comments || null,
+        status: "pendiente"
+      }, { transaction });
+
+      // Generar días del paseo
+      let days_to_insert = [];
+      const dayMap = {
+        lunes: 1, martes: 2, miercoles: 3, jueves: 4, 
+        viernes: 5, sabado: 6, domingo: 7
+      };
+
+      if (walk_type_id == 1) { // Paseo fijo
+        days_to_insert = generate_days_for_week(days, start_time, duration);
+      } else { // Paseo esporádico
+        const target_day = dayMap[days[0].toLowerCase()];
+        let start_date = dayjs().startOf("day");
+        
+        while (start_date.isoWeekday() !== target_day) {
+          start_date = start_date.add(1, "day");
+        }
+
+        days_to_insert = [{
+          start_date: start_date.format("YYYY-MM-DD"),
+          start_time,
+          duration: parseInt(duration),
+        }];
+      }
+
+      // Crear días del paseo
+      await Promise.all(days_to_insert.map(day => 
+        days_walk.create({
+          walk_id: newWalk.walk_id,
+          start_date: day.start_date,
+          start_time: day.start_time,
+          duration: day.duration
+        }, { transaction })
+      ));
+
+      // Asociar mascota
+      await pet_walk.create({
+        walk_id: newWalk.walk_id,
+        pet_id: parseInt(pet_id)
+      }, { transaction });
+
+      // Confirmar transacción
+      await transaction.commit();
+
+      return res.status(201).json({
         msg: "Paseo creado exitosamente",
         walk_id: newWalk.walk_id,
         error: false
       });
+
+    } catch (error) {
+      // Revertir transacción en caso de error
+      await transaction.rollback();
+      throw error;
+    }
+
   } catch (error) {
-    console.error("Error en create_walk:", error);
-    return res
-      .status(500)
-        .json({
-          msg: "Error al crear el paseo",
-          error: true
-        });
+    console.error("Error en create_walk:", error.message);
+    return res.status(500).json({
+      msg: "Error al crear el paseo",
+      error: true,
+      ...(process.env.NODE_ENV === 'development' && {
+        details: error.message
+      })
+    });
   }
 };
 
