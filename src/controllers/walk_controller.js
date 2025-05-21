@@ -277,7 +277,12 @@ const get_assigned_walks = async (req, res) => {
         {
           model: days_walk,
           as: "days",
-          attributes: ["start_date","start_time"]
+          attributes: ["start_date","start_time", "duration"],
+          where: {
+            start_date: {
+              [Op.gte]: dayjs().format("YYYY-MM-DD"),
+            },
+          },
         }
       ],
       order: [["walk_id","DESC"]]
@@ -294,6 +299,7 @@ const get_assigned_walks = async (req, res) => {
         zone:       p.zone,
         time:       d.start_time,
         date:       d.start_date,
+        duration:   d.duration,
       };
     });
 
