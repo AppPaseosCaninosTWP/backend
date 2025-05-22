@@ -133,3 +133,49 @@ const generateReceipt = async (req, res) => {
     
     doc.pipe(res);
 }
+
+const paymentHistory = async (req, res) => {
+    const { walker_id } = req.params;
+    const { start_date, end_date } = req.query;
+
+    const payments = await db.payment.findAll({
+      include: [{
+        model: db.walk,
+        where: { walker_id },
+        include: [db.user]
+      }],
+      where: {
+        date: {
+          [Op.between]: [
+            dayjs(start_date).startOf("day").toDate(),
+            dayjs(end_date).endOf("day").toDate()
+          ]
+        }
+      },
+      order: [["date", "DESC"]]
+    });
+
+    const formattedPayments = payments.map(p => ({
+      id: p.payment_id,
+      amount: p.amount,
+      date: dayjs(p.date).format("YYYY-MM-DD HH:mm:ss"),
+      status: p.status,
+      client: p.walk.user.name
+    }));
+
+    return res
+        .status(200)
+        .json({
+            message: "Historial de pagos obtenido correctamente",
+            data: formattedPayments
+        });
+}
+
+module.exports = {
+    createPayment,
+    processPayment,
+    verifyCommission,
+    getBalance,
+    generateReceipt,
+    paymentHistory
+};
