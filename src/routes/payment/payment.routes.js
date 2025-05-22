@@ -5,8 +5,9 @@ const {
   verifyCommission,
   getBalance,
   generateReceipt,
-  paymentHistory
-} = require("../controllers/payment_controller");
+  paymentHistory,
+} = require("../../controllers/payment_controller");
+
 const validate_jwt = require("../middlewares/validate_jwt");
 
 const router = Router();
