@@ -14,7 +14,7 @@ const allow_roles = require("../../middlewares/allow_roles");
 const router = Router();
 router.use(validate_jwt);
 
-router.get("/available", validate_jwt, get_available_walks);
+router.get("/available", allow_roles(2), validate_jwt, get_available_walks);
 router.post("/create_walk", allow_roles(3), create_walk);
 router.get("/get_all_walks", allow_roles(1, 2, 3), get_all_walks);
 router.get("/assigned", allow_roles(2), get_assigned_walks);
