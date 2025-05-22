@@ -18,6 +18,7 @@ const get_users = async (req, res) => {
       msg: "usuarios obtenidos exitosamente",
       data: rows.map((u) => ({
         user_id: u.user_id,
+        name: u.name,
         email: u.email,
         phone: u.phone,
         is_enable: u.is_enable,
