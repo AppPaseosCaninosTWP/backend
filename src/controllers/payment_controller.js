@@ -67,8 +67,69 @@ const verifyCommission = async (req, res) => {
         .json({
             message: "Comisión verificada correctamente",
             data: {
-                payment,
-                transaction
+                walker_balance: walker.balance,
+                commission_applied: commission
             }
         });
+}
+
+const getBalance = async (req, res) => {
+    const { walker_id } = req.params;
+
+    const walker = await db.walker.findByPk(walker_id);
+
+    return res
+        .status(200)
+        .json({
+            message: "Saldo obtenido correctamente",
+            data: {
+                balance: walker.balance || 0,
+                currency: "CLP"
+            }
+        });
+}
+
+const generateReceipt = async (req, res) => {
+    const { payment_id } = req.params;
+    
+    const payment = await db.payment.findByPk(payment_id, {
+      include: [{ 
+        model: db.walk, 
+        include: [
+            db.user, 
+            db.walker
+            ] 
+        }]
+    });
+
+    const doc = new PDFDocument();
+    const formattedDate = dayjs(payment.date).format("YYYY-MM-DD HH:mm:ss");
+
+    doc.fontSize(20).text("Comprobante de Pago", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(14).text(`ID de Pago: ${payment.payment_id}`);
+    doc.text(`Fecha: ${formattedDate}`);
+    doc.moveDown();
+    doc.text(`Cliente: ${payment.walk.user.name}`);
+    doc.text(`Paseador: ${payment.walk.walker.name}`);
+    doc.moveDown();
+    doc.text(`Monto Total: CLP ${payment.amount.toFixed(2)}`);
+
+    if (payment.status === "completed") {
+      const commission = payment.amount * COMMISSION_RATE;
+      const walkerAmount = payment.amount - commission;
+      doc.moveDown();
+      doc.text(`Comisión (${COMMISSION_RATE * 100}%): CLP ${commission.toFixed(2)}`);
+      doc.text(`Monto para Paseador: CLP ${walkerAmount.toFixed(2)}`);
+    }
+
+    doc.moveDown();
+    doc.text(`Estado: ${payment.status === "completed" ? "Completado" : "Pendiente"}`);
+    doc.end();
+
+    // Configurar respuesta
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=comprobante_${payment_id}.pdf`);
+    
+    doc.pipe(res);
 }
