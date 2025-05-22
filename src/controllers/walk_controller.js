@@ -428,6 +428,7 @@ const cancel_walk = async (req, res) => {
   }
 
   w.status = 'cancelado';
+  w.walker_id = null;
   await w.save();
 
   sendNotification(w.client_id, {
