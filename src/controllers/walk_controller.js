@@ -25,164 +25,263 @@ const create_walk = async (req, res) => {
   const client_id = req.user.user_id;
 
   try {
-    if (!Array.isArray(days) || days.length === 0) {
-      return res
-        .status(400)
-        .json({ msg: "Debes seleccionar al menos un día." });
-    }
-    if (!start_time || !duration) {
-      return res
-        .status(400)
-        .json({ msg: "Debes proporcionar hora de inicio y duración." });
-    }
-    if (walk_type_id === 1 && days.length < 2) {
-      return res
-        .status(400)
-        .json({ msg: "Un paseo fijo requiere al menos 2 días." });
-    }
-    if (walk_type_id === 2 && days.length !== 1) {
-      return res
-        .status(400)
-        .json({ msg: "Un paseo esporádico debe tener exactamente 1 día." });
-    }
-
-    const newWalk = await walk.create({
-      walk_type_id,
-      client_id,
-      comments,
-      status: "pendiente",
-    });
-
-    let days_to_insert = [];
-
-    if (walk_type_id === 1) {
-      days_to_insert = generate_days_for_week(days, start_time, duration);
-    } else if (walk_type_id === 2) {
-      const day_map = {
-        lunes: 1,
-        martes: 2,
-        miercoles: 3,
-        jueves: 4,
-        viernes: 5,
-        sabado: 6,
-        domingo: 7,
-      };
-
-      const target_day = day_map[days[0]];
-      if (!target_day) {
-        return res.status(400).json({ msg: "Día inválido." });
-      }
-
-      let start_date = dayjs().startOf("day");
-      while (start_date.isoWeekday() !== target_day) {
-        start_date = start_date.add(1, "day");
-      }
-
-      days_to_insert = [
-        {
-          start_date: start_date.format("YYYY-MM-DD"),
-          start_time,
-          duration,
-        },
-      ];
-    }
-
-    for (const day of days_to_insert) {
-      await days_walk.create({
-        walk_id: newWalk.walk_id,
-        start_date: day.start_date,
-        start_time: day.start_time,
-        duration: day.duration,
+    // Validación de tipo de paseo
+    if (![1, 2].includes(parseInt(walk_type_id))) {
+      return res.status(400).json({ 
+        msg: "Tipo de paseo inválido (1: fijo, 2: esporádico)", 
+        error: true 
       });
     }
 
-    await pet_walk.create({
-      walk_id: newWalk.walk_id,
-      pet_id,
+    // Validación de pet_id (sin usar validator)
+    if (!pet_id || isNaN(parseInt(pet_id))) {
+      return res.status(400).json({ 
+        msg: "ID de mascota inválido", 
+        error: true 
+      });
+    }
+
+    // Verificar que la mascota pertenece al usuario
+    const petExists = await pet.findOne({
+      where: {
+        pet_id: parseInt(pet_id),
+        owner_id: client_id 
+      }
     });
 
-    return res.status(201).json({
-      msg: "Paseo creado exitosamente",
-      walk_id: newWalk.walk_id,
-    });
+    if (!petExists) {
+      return res.status(404).json({ 
+        msg: "Mascota no encontrada o no pertenece al usuario", 
+        error: true 
+      });
+    }
+
+    // Validar días según tipo de paseo
+    const validDays = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+    
+    if (!Array.isArray(days) || days.length === 0) {
+      return res.status(400).json({ 
+        msg: "Debes seleccionar al menos un día", 
+        error: true 
+      });
+    }
+
+    if (walk_type_id == 1 && days.length < 2) {
+      return res.status(400).json({ 
+        msg: "Un paseo fijo requiere al menos 2 días", 
+        error: true 
+      });
+    }
+
+    if (walk_type_id == 2 && days.length !== 1) {
+      return res.status(400).json({ 
+        msg: "Un paseo esporádico debe tener exactamente 1 día", 
+        error: true 
+      });
+    }
+
+    // Validar formato de hora (sin usar validator)
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(start_time)) {
+      return res.status(400).json({ 
+        msg: "Formato de hora inválido (debe ser HH:MM, 24 horas)", 
+        error: true 
+      });
+    }
+
+    // Validar duración
+    if (![30, 60].includes(parseInt(duration))) {
+      return res.status(400).json({ 
+        msg: "Duración inválida (solo 30 o 60 minutos)", 
+        error: true 
+      });
+    }
+
+    // Validar comentarios (sin usar validator)
+    if (comments && comments.length > 250) {
+      return res.status(400).json({ 
+        msg: "Los comentarios no pueden exceder 250 caracteres", 
+        error: true 
+      });
+    }
+
+    // Crear transacción
+    const transaction = await walk.sequelize.transaction();
+
+    try {
+      // Crear el paseo principal
+      const newWalk = await walk.create({
+        walk_type_id: parseInt(walk_type_id),
+        client_id,
+        comments: comments || null,
+        status: "pendiente"
+      }, { transaction });
+
+      // Generar días del paseo
+      let days_to_insert = [];
+      const dayMap = {
+        lunes: 1, martes: 2, miercoles: 3, jueves: 4, 
+        viernes: 5, sabado: 6, domingo: 7
+      };
+
+      if (walk_type_id == 1) { // Paseo fijo
+        days_to_insert = generate_days_for_week(days, start_time, duration);
+      } else { // Paseo esporádico
+        const target_day = dayMap[days[0].toLowerCase()];
+        let start_date = dayjs().startOf("day");
+        
+        while (start_date.isoWeekday() !== target_day) {
+          start_date = start_date.add(1, "day");
+        }
+
+        days_to_insert = [{
+          start_date: start_date.format("YYYY-MM-DD"),
+          start_time,
+          duration: parseInt(duration),
+        }];
+      }
+
+      // Crear días del paseo
+      await Promise.all(days_to_insert.map(day => 
+        days_walk.create({
+          walk_id: newWalk.walk_id,
+          start_date: day.start_date,
+          start_time: day.start_time,
+          duration: day.duration
+        }, { transaction })
+      ));
+
+      // Asociar mascota
+      await pet_walk.create({
+        walk_id: newWalk.walk_id,
+        pet_id: parseInt(pet_id)
+      }, { transaction });
+
+      // Confirmar transacción
+      await transaction.commit();
+
+      return res.status(201).json({
+        msg: "Paseo creado exitosamente",
+        walk_id: newWalk.walk_id,
+        error: false
+      });
+
+    } catch (error) {
+      // Revertir transacción en caso de error
+      await transaction.rollback();
+      throw error;
+    }
+
   } catch (error) {
-    console.error("Error en create_walk:", error);
-    return res.status(500).json({ msg: "Error al crear el paseo" });
+    console.error("Error en create_walk:", error.message);
+    return res.status(500).json({
+      msg: "Error al crear el paseo",
+      error: true,
+      ...(process.env.NODE_ENV === 'development' && {
+        details: error.message
+      })
+    });
   }
 };
 
+
 const get_available_walks = async (req, res) => {
   try {
-    const walkerId = req.user.user_id;
-    const perfil = await walker_profile.findOne({
-      where: { walker_id: walkerId },
-      attributes: ["zone"],
-    });
-    if (!perfil) {
-      return res
-        .status(404)
-        .json({ msg: "Perfil de paseador no encontrado", error: true });
+    // Validar parámetros de búsqueda si existem
+    const { zone, date} = req.query;
+
+    let whereCondition = {
+      status: "pendiente",
+      walker_id: null,
+    };
+
+    let includeConditions = [
+      {
+        model: pet,
+        as: "pets",
+        through: { attributes: [] },
+        attributes: ["pet_id", "name", "photo", "zone"],
+      },
+      {
+        model: walk_type,
+        as: "walk_type",
+        attributes: ["name"],
+      },
+      {
+        model: days_walk,
+        as: "days",
+        attributes: ["start_date", "start_time", "duration"],
+        where: {
+          start_date: {
+            [Op.gte]: dayjs().format("YYYY-MM-DD"),
+          }
+        }
+      }
+    ];
+
+    // Filtrar por sector si se proporciona
+    if (zone) {
+      includeConditions[0].where = {
+        zone: {
+          [Op.iLike]: `%${zone}%`,
+        },
+      };
     }
-    const myZone = perfil.zone;
+
+    // Filtrar por fecha especifica si se proporciona
+    if (date && dayjs(date).isValid()) {
+      includeConditions[2].where.start_date = {
+        [Op.eq]: dayjs(date).format("YYYY-MM-DD"),
+      };
+    } else if (date) {
+      return res
+        .status(400)
+        .json({
+          msg: "Fecha inválida. Debe estar en formato YYYY-MM-DD.",
+          error: true
+        });
+    }
 
     const walks = await walk.findAll({
-      where: {
-        status: "pendiente",
-        walker_id: null,
-      },
-      include: [
-        {
-          model: pet,
-          as: "pets",
-          through: { attributes: [] },
-          attributes: ["pet_id", "name", "photo", "zone"],
-          where: {
-            zone: myZone
-          },
-        },
-        {
-          model: walk_type,
-          as: "walk_type",
-          attributes: ["name"],
-        },
-        {
-          model: days_walk,
-          as: "days",
-          attributes: ["start_date", "start_time", "duration"],
-          where: {
-            start_date: {
-              [Op.gte]: dayjs().format("YYYY-MM-DD"),
-            },
-          },
-        },
-      ],
-      order: [["walk_id", "DESC"]],
+      where: whereCondition,
+      include: includeConditions,
+      order: [["walk_id", "DESC"]]
     });
 
-    const data = walks.map((w) => {
+    const data = walks.map(w => {
       const p = w.pets[0] || {};
-      const d = w.days[0] || {};
+      const firstDay = w.days[0] || {};
       return {
         walk_id:   w.walk_id,
-        pet_id:    p.pet_id,
+        pet_id:   p.pet_id,
         pet_name:  p.name,
         pet_photo: p.photo,
         sector:    p.zone,
         walk_type: w.walk_type.name,
-        time:      d.start_time,
-        date:      d.start_date,
-        duration:  d.duration,
+        time:      firstDay.start_time,
+        date:      firstDay.start_date,
+        duration:  firstDay.duration,
       };
     });
 
-    return res.json({ msg: "Paseos disponibles obtenidos", data, error: false });
-  } catch (err) {
-    console.error("Error en get_available_walks:", err);
     return res
-      .status(500)
-      .json({ msg: "Error en el servidor", error: true });
+      .json({ 
+        msg: "Paseos disponibles obtenidos",
+        data,
+        error: false 
+      });
+  } catch (err) {
+    console
+    .error("Error en get_available_walks:", err);
+    return res
+    .status(500)
+    .json({
+      msg: "Error en el servidor",
+      error: true
+    });
   }
 };
+
 
 const accept_walk = async (req, res) => {
   const walkerId = req.user.user_id;
@@ -277,7 +376,12 @@ const get_assigned_walks = async (req, res) => {
         {
           model: days_walk,
           as: "days",
-          attributes: ["start_date","start_time"]
+          attributes: ["start_date","start_time", "duration"],
+          where: {
+            start_date: {
+              [Op.gte]: dayjs().format("YYYY-MM-DD"),
+            },
+          },
         }
       ],
       order: [["walk_id","DESC"]]
@@ -294,6 +398,7 @@ const get_assigned_walks = async (req, res) => {
         zone:       p.zone,
         time:       d.start_time,
         date:       d.start_date,
+        duration:   d.duration,
       };
     });
 
@@ -344,6 +449,25 @@ const get_all_walks = async (req, res) => {
   const limit = Number(req.query.limit) || 10;
   const offset = (page - 1) * limit;
 
+  // Validar parámetros de paginación
+  if (isNaN(page) || page < 1) {
+    return res
+      .status(400)
+      .json({
+        msg: "Número de página invalido.",
+        error: true
+      });
+  }
+
+  if (isNaN(limit) || limit < 1 || limit > 100) {
+    return res
+      .status(400)
+      .json({
+        msg: "Limite inválido (1-100).",
+        error: true
+      });
+  }
+
   try {
     let condition = {};
 
@@ -373,6 +497,7 @@ const get_all_walks = async (req, res) => {
         },
         {
           model: walk_type,
+          as: "walk_type",
           attributes: ["name"],
         },
         {
@@ -409,16 +534,62 @@ const get_all_walks = async (req, res) => {
     });
   } catch (error) {
     console.error("Error en get_all_walks:", error);
-    return res.status(500).json({ msg: "Error en el servidor", error: true });
+    return res
+      .status(500)
+      .json({
+        msg: "Error en el servidor",
+        error: true
+      });
   }
 };
+
 
 const get_walk_by_id = async (req, res) => {
   const { id } = req.params;
   const { user_id, role_id } = req.user;
 
+  if (!id || isNaN(Number(id))) {
+    return res.status(400).json({ 
+      msg: "ID de paseo inválido", 
+      error: true 
+    });
+  }
+
   try {
-    const w = await walk.findByPk(id, {
+    // 1. Verificar existencia del paseo y permisos primero
+    const basicWalk = await walk.findByPk(id, {
+      attributes: ['walk_id', 'client_id', 'walker_id', 'status', 'walk_type_id'],
+      include: [{
+        model: walk_type,
+        as: "walk_type",
+        attributes: ["name"]
+      }]
+    });
+
+    if (!basicWalk) {
+      return res.status(404).json({
+        msg: "Paseo no encontrado",
+        error: true,
+      });
+    }
+
+    // 2. Validar permisos
+    const canAccess = (
+      role_id === 1 || // Admin
+      (role_id === 3 && basicWalk.client_id === user_id) || // Dueño
+      (role_id === 2 && (basicWalk.walker_id === user_id || 
+                        (basicWalk.status === "pendiente" && !basicWalk.walker_id))) // Paseador
+    );
+
+    if (!canAccess) {
+      return res.status(403).json({
+        msg: "No tienes permiso para ver este paseo",
+        error: true,
+      });
+    }
+
+    // 3. Obtener datos completos con manejo seguro de asociaciones
+    const fullWalk = await walk.findByPk(id, {
       include: [
         {
           model: user,
@@ -429,68 +600,72 @@ const get_walk_by_id = async (req, res) => {
           model: user,
           as: "walker",
           attributes: ["user_id", "email", "phone"],
+          required: false
         },
         {
           model: walk_type,
+          as: "walk_type",
           attributes: ["walk_type_id", "name"],
-        },
-        {
-          model: pet_walk,
-          include: [{ model: pet }],
         },
         {
           model: days_walk,
           as: "days",
-        },
-      ],
+          attributes: ["start_date", "start_time", "duration"],
+        }
+      ]
     });
 
-    if (!w) {
-      return res.status(404).json({
-        msg: "Paseo no encontrado",
-        error: true,
-      });
-    }
+    // 4. Obtener mascotas por separado para evitar problemas de asociación
+    const petWalks = await pet_walk.findAll({
+      where: { walk_id: id },
+      include: [{
+        model: pet,
+        as: "pet",
+        attributes: ["pet_id", "name", "photo", "zone"]
+      }]
+    });
 
-    const isAdmin = role_id === 1;
-    const isClientOwner = role_id === 3 && w.client_id === user_id;
-    const isWalkerAssigned = role_id === 2 && w.walker_id === user_id;
-    const isWalkerPending =
-      role_id === 2 && w.status === "pendiente" && w.walker === null;
-
-    if (!isAdmin && !isClientOwner && !isWalkerAssigned && !isWalkerPending) {
-      return res.status(403).json({
-        msg: "No tienes permiso para ver este paseo",
-        error: true,
-      });
-    }
-
-    const pets = w.pet_walks?.map((pw) => pw.pet) || [];
-
-    const walkData = {
-      walk_id: w.walk_id,
-      walk_type: w.walk_type,
-      status: w.status,
-      comments: w.comments,
-      client: w.client,
-      walker: w.walker,
-      pets,
-      days: w.days,
+    // 5. Construir respuesta
+    const responseData = {
+      walk_id: fullWalk.walk_id,
+      walk_type: fullWalk.walk_type,
+      status: fullWalk.status,
+      comments: fullWalk.comments || null,
+      client: fullWalk.client || null,
+      walker: fullWalk.walker || null,
+      pets: petWalks.map(pw => pw.pet).filter(Boolean),
+      days: (fullWalk.days || []).map(d => ({
+        start_date: d.start_date,
+        start_time: d.start_time,
+        duration: d.duration
+      }))
     };
 
     return res.json({
       msg: "Paseo obtenido exitosamente",
-      data: walkData,
+      data: responseData,
       error: false,
     });
+
   } catch (error) {
-    console.error("Error en get_walk_by_id:", error);
+    console.error("Error en get_walk_by_id:", {
+      message: error.message,
+      stack: error.stack
+    });
+
     return res.status(500).json({
-      msg: "Error en el servidor",
+      msg: "Error al obtener el paseo",
       error: true,
+      ...(process.env.NODE_ENV === 'development' && {
+        debug: {
+          error: error.name,
+          suggestion: "Verifique las asociaciones entre los modelos walk y pet_walk"
+        }
+      })
     });
   }
 };
+
 
 module.exports = {
   create_walk,
