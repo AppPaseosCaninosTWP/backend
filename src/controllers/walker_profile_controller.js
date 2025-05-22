@@ -118,20 +118,23 @@ const create_walker_profile = async (req, res) => {
 
 const get_all_profiles = async (req, res) => {
   try {
-    // 1) Traer todos con datos de usuario
-    const profiles = await walker_profile.findAll({
+    const page  = parseInt(req.query.page)  || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await walker_profile.findAndCountAll({
+      offset,
+      limit,
       include: {
         model: user,
         as: "user",
-        attributes: ["name","email","phone"]
+        attributes: ["name", "email", "phone"]
       }
     });
 
-    // 2) Construir baseUrl para imágenes
     const baseUrl = `${req.protocol}://${req.get("host")}/uploads`;
 
-    // 3) Mapear resultados incluyendo photoUrl
-    const data = profiles.map(p => ({
+    const data = rows.map(p => ({
       walker_id:   p.walker_id,
       name:        p.user.name,
       email:       p.user.email,
@@ -149,6 +152,12 @@ const get_all_profiles = async (req, res) => {
     return res.json({
       msg:   "Perfiles obtenidos exitosamente",
       data,
+      pagination: {
+        total: count,
+        page,
+        per_page: limit,
+        total_pages: Math.ceil(count / limit)
+      },
       error: false
     });
   } catch (error) {
