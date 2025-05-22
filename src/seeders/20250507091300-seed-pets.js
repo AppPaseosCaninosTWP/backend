@@ -60,7 +60,6 @@ module.exports = {
         photo: "toby.png",
         owner_id: 7,
       },
-
       // Cliente 2: Lucía
       {
         name: "Canela",
@@ -95,7 +94,6 @@ module.exports = {
         photo: "milo.png",
         owner_id: 8,
       },
-
       // Cliente 3: Mario
       {
         name: "Bruno",
@@ -130,7 +128,6 @@ module.exports = {
         photo: "simba.png",
         owner_id: 9,
       },
-
       // Cliente 4: Sara
       {
         name: "Nina",
@@ -165,7 +162,6 @@ module.exports = {
         photo: "bella.png",
         owner_id: 10,
       },
-
       // Cliente 5: David
       {
         name: "Coco",
@@ -199,6 +195,18 @@ module.exports = {
         medical_condition: "Sensibilidad al calor",
         photo: "rocco.png",
         owner_id: 11,
+      },
+      // mascota de prueba para cliente_wsp
+      {
+        name: "Sam",
+        breed: "Border Collie",
+        age: 8,
+        zone: "centro",
+        description: "mascota de prueba para el redireccionamiento a wsp",
+        comments: "mascota de prueba para el redireccionamiento a wsp",
+        medical_condition: "mascota de prueba para el redireccionamiento a wsp",
+        photo: "sam.png",
+        owner_id: 12,
       },
     ]);
   },

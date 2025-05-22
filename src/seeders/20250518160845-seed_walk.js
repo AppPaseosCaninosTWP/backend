@@ -43,15 +43,15 @@ module.exports = {
         client_id: 10,
         walker_id: 6,
       },
-
+      //Paseo utilizado para probar el redireccionamiento a whatsapp
       // CONFIRMADO: asignado para mañana
       {
         walk_id: 5,
         walk_type_id: 2,
-        comments: "Confirmado por Ana para Max",
+        comments: "prueba redireccionamiento a wsp",
         status: "confirmado",
-        client_id: 11,
-        walker_id: 2,
+        client_id: 12, //cliente_wsp
+        walker_id: 13, //paseador_wsp
       },
 
       // --- Paseos nuevos para walker_id = 2 ---
@@ -84,16 +84,11 @@ module.exports = {
 
     const pet_walks = [
       { walk_id: 1, pet_id: 1 }, // Max (pendiente)
-
       { walk_id: 2, pet_id: 5 }, // Rocky (confirmado)
-
       { walk_id: 3, pet_id: 10 }, // Bruno (cancelado)
-
       { walk_id: 4, pet_id: 13 }, // Nina (finalizado)
-
-      { walk_id: 5, pet_id: 15 }, // Daisy (confirmado)
+      { walk_id: 5, pet_id: 18 }, // pet_walk de prueba para el redireccionamiento a wsp (confirmado)
       { walk_id: 5, pet_id: 16 }, // Rocco
-        // --- Asociación de mascotas ---
       { walk_id: 6, pet_id: 3 },  // Max
       { walk_id: 7, pet_id: 7 },  // Rocky
       { walk_id: 8, pet_id: 9 },  // Bruno

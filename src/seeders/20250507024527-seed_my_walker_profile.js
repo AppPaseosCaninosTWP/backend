@@ -46,6 +46,18 @@ module.exports = {
         balance: 0,
         on_review: false,
       },
+      //Perfil de paseador utilizado para probar el redireccionamiento a whatsapp
+      {
+        walker_id: 13, // pasaedor_wsp
+        experience: 5,
+        walker_type: "fijo",
+        zone: "sur",
+        photo: "pasaedor_wsp.jpg",
+        description:
+          "prueba redireccionamiento a wsp",
+        balance: 0,
+        on_review: false,
+      },
     ]);
   },
 
