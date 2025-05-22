@@ -1,116 +1,115 @@
+const bcrypt    = require("bcryptjs");
 const validator = require("validator");
-const { walker_profile, user } = require("../models/database");
-const { Op } = require("sequelize");
-const bcrypt = require("bcryptjs");
-const ALLOWED_IMAGE_MIMETYPES = ["image/jpeg", "image/png"];
+const { Op }    = require("sequelize");
+const fs        = require("fs");
+const path      = require("path");
+
+const { user, walker_profile } = require("../models/database");
+
+const ALLOWED_ZONES        = ["norte","centro","sur"];
+const ALLOWED_WALKER_TYPES = ["esporádico","fijo"];
 
 const create_walker_profile = async (req, res) => {
   try {
-    if (req.user.role_id !== 1) {
-      return res.status(403).json({ msg: "Acción no permitida", error: true });
-    }
-
+    // 1) Desestructurar y sanitizar
     let {
       name,
       email,
       phone,
       password,
+      confirm_password,
       experience,
       walker_type,
       zone,
-      photo,
-      description,
+      description = ""
     } = req.body;
 
-    // Validaciones básicas
-    if (
-      !name ||
-      !email ||
-      !phone ||
-      !password ||
-      !experience ||
-      !walker_type ||
-      !zone ||
-      !photo
-    ) {
-      return res
-        .status(400)
-        .json({
-          msg: "Todos los campos obligatorios deben completarse",
-          error: true,
-        });
-    }
+    name             = validator.trim(name   || "");
+    email            = validator.trim(email  || "");
+    phone            = validator.trim(phone  || "");
+    password         = validator.trim(password || "");
+    confirm_password = validator.trim(confirm_password || "");
+    experience       = Number(experience);
+    walker_type      = (walker_type || "").trim().toLowerCase();
+    zone             = (zone        || "").trim().toLowerCase();
+    description      = description.trim();
 
-    if (!validator.isEmail(email)) {
-      return res
-        .status(400)
-        .json({ msg: "Correo electrónico inválido", error: true });
+    // 2) Validaciones básicas (mismas que register_user)
+    if (!name || name.length > 50) {
+      return res.status(400).json({ error:true, msg:"El nombre es obligatorio y ≤50 caracteres" });
     }
-
+    if (!email || !validator.isEmail(email)) {
+      return res.status(400).json({ error:true, msg:"Email inválido" });
+    }
     if (!/^\d{9}$/.test(phone)) {
-      return res
-        .status(400)
-        .json({
-          msg: "El teléfono debe tener 9 dígitos numéricos",
-          error: true,
-        });
+      return res.status(400).json({ error:true, msg:"El teléfono debe tener 9 dígitos" });
+    }
+    if (password.length < 8 || password.length > 15) {
+      return res.status(400).json({ error:true, msg:"Contraseña 8–15 caracteres" });
+    }
+    if (password !== confirm_password) {
+      return res.status(400).json({ error:true, msg:"Las contraseñas no coinciden" });
     }
 
-    if (description && description.length > 250) {
-      return res
-        .status(400)
-        .json({
-          msg: "La descripción no puede exceder 250 caracteres",
-          error: true,
-        });
+    // 3) Campos obligatorios de paseador
+    if (!req.file) {
+      return res.status(400).json({ error:true, msg:"Foto de perfil obligatoria" });
+    }
+    if (isNaN(experience) || experience < 1 || experience > 99) {
+      return res.status(400).json({ error:true, msg:"Experiencia debe ser entero 1–99" });
+    }
+    if (!ALLOWED_WALKER_TYPES.includes(walker_type)) {
+      return res.status(400).json({ error:true, msg:"Tipo inválido: esporádico o fijo" });
+    }
+    if (!ALLOWED_ZONES.includes(zone)) {
+      return res.status(400).json({ error:true, msg:"Zona inválida: norte, centro o sur" });
+    }
+    if (description && (description.length > 250)) {
+      return res.status(400).json({ error:true, msg:"Descripción 50–250 caracteres" });
     }
 
-    // Verificar duplicados
+    // 4) Unicidad de email/teléfono
     const exists = await user.findOne({
-      where: { [Op.or]: [{ email }, { phone }] },
+      where: { [Op.or]: [{ email }, { phone }] }
     });
     if (exists) {
-      return res
-        .status(409)
-        .json({ msg: "Email o teléfono ya registrado", error: true });
+      return res.status(400).json({ error:true, msg:"Email o teléfono ya registrado" });
     }
 
-    // Crear usuario
-    const hashed_password = await bcrypt.hash(password, 10);
-    const new_user = await user.create({
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      password: hashed_password,
-      role_id: 2, // Paseador
+    // 5) Crear usuario con role_id = 2 (paseador)
+    const hashed = await bcrypt.hash(password, 10);
+    const newUser = await user.create({
+      name, email, phone, password: hashed, role_id: 2
     });
 
-    // Crear perfil de paseador
+    // 6) Renombrar imagen con su extensión real
+    const ext      = path.extname(req.file.originalname).toLowerCase();
+    const filename = `${req.file.filename}${ext}`;
+    fs.renameSync(
+      path.join("uploads", req.file.filename),
+      path.join("uploads", filename)
+    );
+
+    // 7) Crear perfil de paseador
     const profile = await walker_profile.create({
-      walker_id: new_user.user_id,
+      walker_id:   newUser.user_id,
       experience,
-      walker_type,
-      zone,
-      photo,
-      description: description?.trim(),
+      walker_type: walker_type[0].toUpperCase() + walker_type.slice(1),
+      zone:        zone[0].toUpperCase() + zone.slice(1),
+      photo:       filename,
+      description
     });
 
+    // 8) Respuesta
     return res.status(201).json({
-      msg: "Usuario paseador y perfil creados exitosamente",
-      data: {
-        user: {
-          user_id: new_user.user_id,
-          name: new_user.name,
-          email: new_user.email,
-          phone: new_user.phone,
-        },
-        profile,
-      },
       error: false,
+      msg:   "Paseador registrado correctamente",
+      data:  { user: newUser, profile }
     });
+
   } catch (err) {
     console.error("Error en create_walker_profile:", err);
-    return res.status(500).json({ msg: "Error en el servidor", error: true });
+    return res.status(500).json({ error:true, msg:"Error de servidor" });
   }
 };
 
