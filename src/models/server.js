@@ -26,7 +26,7 @@ class Server {
       pet:            "/api/pet",
       walker_profile: "/api/walker_profile",
       walk: "/api/walk",
-      contact: "/api/contact"
+      contact: "/api/contact",
       payment: "/api/payment",
     };
 
