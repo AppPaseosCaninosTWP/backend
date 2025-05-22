@@ -37,6 +37,15 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
       },
+       update_requested: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      },
+      pending_changes: {
+        type: DataTypes.JSON,
+        allowNull: true
+      }
     },
     {
       tableName: "walker_profile",

@@ -42,6 +42,15 @@ module.exports = {
         type: Sequelize.BOOLEAN,
         defaultValue: true,
       },
+       update_requested: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      },
+      pending_changes: {
+        type: Sequelize.JSON,   
+        allowNull: true
+      }
     });
   },
 
