@@ -9,6 +9,9 @@ const { user, walker_profile } = require("../models/database");
 const ALLOWED_ZONES        = ["norte","centro","sur"];
 const ALLOWED_WALKER_TYPES = ["esporádico","fijo"];
 
+const { send_email }       = require("../utils/email_service");
+const { sendNotification } = require("../utils/send_notification");
+
 const create_walker_profile = async (req, res) => {
   try {
     // 1) Desestructurar y sanitizar
@@ -208,91 +211,185 @@ const get_profile_by_id = async (req, res) => {
 const update_walker_profile = async (req, res) => {
   try {
     const { id }       = req.params;
-    const auth_user_id = req.user.user_id;
-    const auth_role_id = req.user.role_id;
+    const { user_id: authUserId, role_id: authRoleId } = req.user;
+    const uploadDir    = path.join(__dirname, "../../uploads");
 
-    // 1) Recuperar perfil
-    const profile = await walker_profile.findByPk(id);
-    if (!profile) {
-      return res.status(404).json({ msg: "Perfil no encontrado", error: true });
-    }
-
-    // 2) Autorización: admin o propio paseador
-    if (
-      auth_role_id !== 1 &&
-      !(auth_role_id === 2 && profile.walker_id === auth_user_id)
-    ) {
+    // 1) Sólo paseador puede llamar aquí
+    if (authRoleId !== 2) {
       return res.status(403).json({ msg: "Acceso denegado", error: true });
     }
 
-    // 3) Procesar foto (si se envía nueva)
+    // 2) Recuperar perfil
+    const profile = await walker_profile.findByPk(id);
+    if (!profile || profile.walker_id !== authUserId) {
+      return res.status(404).json({ msg: "Perfil no encontrado", error: true });
+    }
+
+    // 3) Construir objeto de cambios pendientes
+    const pending = {};
+
+    // 3.1) Foto nueva (si viene)
     if (req.file) {
-      const { mimetype, filename } = req.file;
-      if (!ALLOWED_IMAGE_MIMETYPES.includes(mimetype)) {
-        return res
-          .status(400)
-          .json({ msg: "La fotografía debe ser JPEG o PNG", error: true });
-      }
-      profile.photo = filename;
+      const ext     = path.extname(req.file.originalname).toLowerCase();
+      const newName = `${req.file.filename}${ext}`;
+      fs.renameSync(
+        path.join(uploadDir, req.file.filename),
+        path.join(uploadDir, newName)
+      );
+      pending.photo = newName;
     }
 
-    // 4) Cargar registro de usuario para email/phone
-    const user_record = await user.findByPk(profile.walker_id);
-
-    // 5) Validar y aplicar email (si viene)
-    if (req.body.email !== undefined) {
-      const email = req.body.email.trim();
-      if (!validator.isEmail(email)) {
-        return res
-          .status(400)
-          .json({ msg: "Correo electrónico inválido", error: true });
+    // 3.2) Campos que permitimos solicitar
+    ["experience", "walker_type", "zone", "description", "email", "phone"].forEach(field => {
+      if (req.body[field] !== undefined) {
+        pending[field] = req.body[field].toString().trim();
       }
-      user_record.email = email;
-    }
+    });
 
-    // 6) Validar y aplicar teléfono (si viene)
-    if (req.body.phone !== undefined) {
-      const phone = req.body.phone.trim();
-      if (!validator.isMobilePhone(phone, "any")) {
-        return res
-          .status(400)
-          .json({ msg: "Teléfono inválido", error: true });
-      }
-      user_record.phone = phone;
-    }
-
-    // 7) Validar y aplicar descripción (si viene)
-    if (req.body.description !== undefined) {
-      const description = req.body.description.trim();
-      if (!description) {
-        return res
-          .status(400)
-          .json({ msg: "La descripción no puede quedar vacía", error: true });
-      }
-      if (description.length > 250) {
-        return res
-          .status(400)
-          .json({ msg: "La descripción no puede exceder 250 caracteres", error: true });
-      }
-      profile.description = description;
-    }
-
-    // 8) Guardar cambios
-    await user_record.save();
-    profile.on_review = true;  // volver a marcar pendiente
+    // 4) Guardar la petición
+    profile.pending_changes   = pending;
+    profile.update_requested  = true;
     await profile.save();
 
+    // 5) Responder
     return res.json({
-      msg:   "Perfil actualizado y pendiente de aprobación",
-      data:  profile,
-      error: false,
+      msg:  "Solicitud de cambio enviada. Pendiente de aprobación",
+      data: { walker_id: profile.walker_id },
+      error: false
     });
+
   } catch (err) {
     console.error("Error en update_walker_profile:", err);
-    return res
-      .status(500)
-      .json({ msg: "Error en el servidor", error: true });
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
   }
+};
+
+const approve_change_request = async (req, res) => {
+  const { id } = req.params;
+  const p = await walker_profile.findByPk(id, {
+    include: [{ model: user, as: "user", attributes: ["user_id","email","name"] }]
+  });
+  if (!p || !p.update_requested) {
+    return res.status(404).json({ msg:"Solicitud no encontrada", error:true });
+  }
+
+  const uploadDir = path.join(__dirname, "../../uploads");
+  const changes   = p.pending_changes;
+
+  // 1) Foto
+  if (changes.photo) {
+    const oldPath = path.join(uploadDir, p.photo);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    p.photo = changes.photo;
+  }
+  // 2) Otros campos
+  ["experience","walker_type","zone","description"].forEach(field => {
+    if (changes[field] !== undefined) p[field] = changes[field];
+  });
+
+  // 3) Reset flags
+  p.pending_changes  = null;
+  p.update_requested = false;
+  await p.save();
+
+  // 4) Notificar y enviar email
+  const emailText = "Tus cambios han sido aprobados. ¡Revisa tu perfil!";
+  // notificación push / websocket
+  sendNotification(p.walker_id, {
+    title: "Cambios Aprobados",
+    body:  emailText
+  });
+  // correo
+  await send_email(p.user.email, "Cambios aprobados", emailText);
+
+  return res.json({ msg:"Cambios aprobados y aplicados", error:false });
+};
+
+const reject_change_request = async (req, res) => {
+  const { id } = req.params;
+  const p = await walker_profile.findByPk(id, {
+    include: [{ model: user, as: "user", attributes: ["user_id","email","name"] }]
+  });
+  if (!p || !p.update_requested) {
+    return res.status(404).json({ msg:"Solicitud no encontrada", error:true });
+  }
+
+  // Borrar foto temporal si vino una
+  if (p.pending_changes?.photo) {
+    const uploadDir = path.join(__dirname, "../../uploads");
+    const tmp = path.join(uploadDir, p.pending_changes.photo);
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  }
+
+  // Reset flags
+  p.pending_changes  = null;
+  p.update_requested = false;
+  await p.save();
+
+  const emailText = "Tus cambios han sido rechazados. Por favor, revísalos de nuevo.";
+  sendNotification(p.walker_id, {
+    title: "Cambios Rechazados",
+    body:  emailText
+  });
+  await send_email(p.user.email, "Cambios rechazados", emailText);
+
+  return res.json({ msg:"Solicitud rechazada", error:false });
+};
+
+// ── Ver una solicitud concreta ──
+const get_change_request_by_id = async (req, res) => {
+  const { id } = req.params;
+  const p = await walker_profile.findByPk(id, {
+    where: { update_requested: true },
+    include: [{ model: user, as: "user", attributes: ["user_id","email","name"] }]
+  });
+  if (!p || !p.update_requested) {
+    return res.status(404).json({ msg:"Solicitud no encontrada", error:true });
+  }
+
+  const baseUrl = `${req.protocol}://${req.get("host")}/uploads`;
+  return res.json({
+    msg:"Solicitud encontrada",
+    data: {
+      walker_id:  p.walker_id,
+      name:       p.user.name,
+      email:      p.user.email,
+      old: {
+        experience:  p.experience,
+        walker_type: p.walker_type,
+        zone:        p.zone,
+        photoUrl:    `${baseUrl}/${p.photo}`,
+        description: p.description
+      },
+      pending: p.pending_changes
+    },
+    error:false
+  });
+};
+
+// ── Obtener todas las solicitudes pendientes ──
+const get_change_requests = async (req, res) => {
+  const pending = await walker_profile.findAll({
+    where: { update_requested: true },
+    include: [{ model: user, as: "user", attributes: ["user_id","email","name"] }]
+  });
+
+  const baseUrl = `${req.protocol}://${req.get("host")}/uploads`;
+  const data = pending.map(p => ({
+    walker_id: p.walker_id,
+    name:      p.user.name,
+    email:     p.user.email,
+    old: {
+      experience:  p.experience,
+      walker_type: p.walker_type,
+      zone:        p.zone,
+      photoUrl:    `${baseUrl}/${p.photo}`,
+      description: p.description
+    },
+    pending: p.pending_changes
+  }));
+
+  return res.json({ msg:"Solicitudes obtenidas", data, error:false });
 };
 
 module.exports = {
@@ -300,4 +397,8 @@ module.exports = {
   get_all_profiles,
   get_profile_by_id,
   update_walker_profile,
+  approve_change_request,
+  reject_change_request,
+  get_change_requests,
+  get_change_request_by_id
 };
