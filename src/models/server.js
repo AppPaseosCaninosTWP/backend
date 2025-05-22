@@ -11,6 +11,7 @@ const user_routes = require("../routes/user/user.routes");
 const pet_routes = require("../routes/pet/pet.routes");
 const walker_profile_routes = require("../routes/walker/walker_profile.routes");
 const walk_routes = require("../routes/walk/walk.routes");
+const payment_routes = require("../routes/payment/payment.routes");
 
 class Server {
   constructor() {
@@ -23,6 +24,7 @@ class Server {
       pet: "/api/pet",
       walker_profile: "/api/walker_profile",
       walk: "/api/walk",
+      payment: "/api/payment",
     };
 
     this.dbConnection();
@@ -67,6 +69,7 @@ class Server {
     this.app.use(this.paths.pet, pet_routes);
     this.app.use(this.paths.walker_profile, walker_profile_routes);
     this.app.use(this.paths.walk, walk_routes);
+    this.app.use(this.paths.payment, payment_routes);
   }
 
   listen() {
