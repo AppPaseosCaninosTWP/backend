@@ -115,51 +115,70 @@ const create_walker_profile = async (req, res) => {
 
 const get_all_profiles = async (req, res) => {
   try {
-    const profiles = await walker_profile.findAll();
-    res.json({
-      msg: "perfiles de paseadores obtenidos exitosamente",
-      data: profiles,
-      error: false,
+    // 1) Traer todos con datos de usuario
+    const profiles = await walker_profile.findAll({
+      include: {
+        model: user,
+        as: "user",
+        attributes: ["name","email","phone"]
+      }
+    });
+
+    // 2) Construir baseUrl para imágenes
+    const baseUrl = `${req.protocol}://${req.get("host")}/uploads`;
+
+    // 3) Mapear resultados incluyendo photoUrl
+    const data = profiles.map(p => ({
+      walker_id:   p.walker_id,
+      name:        p.user.name,
+      email:       p.user.email,
+      phone:       p.user.phone,
+      experience:  p.experience,
+      walker_type: p.walker_type,
+      zone:        p.zone,
+      description: p.description,
+      balance:     p.balance,
+      on_review:   p.on_review,
+      photo:       p.photo,
+      photoUrl:    `${baseUrl}/${p.photo}`
+    }));
+
+    return res.json({
+      msg:   "Perfiles obtenidos exitosamente",
+      data,
+      error: false
     });
   } catch (error) {
     console.error("error en get_all_profiles:", error);
-    res.status(500).json({ msg: "error en el servidor", error: true });
+    return res.status(500).json({ msg:"error en el servidor", error:true });
   }
 };
 
 const get_profile_by_id = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // 1) Recuperar perfil e incluir datos del Usuario
     const profile = await walker_profile.findByPk(id, {
       include: {
         model: user,
         as: "user",
-        attributes: ["name", "email", "phone"]
+        attributes: ["name","email","phone"]
       }
     });
     if (!profile) {
-      return res
-        .status(404)
-        .json({ msg: "Perfil no encontrado", error: true });
+      return res.status(404).json({ msg:"Perfil no encontrado", error:true });
     }
 
+    // Autorización (admin o propio paseador)
     const { role_id, user_id: authUserId } = req.user;
-
-    // 2) Autorización
-    // - Admin (role_id === 1): puede ver cualquier perfil
-    // - Paseador (role_id === 2): sólo su propio perfil
     if (
-      role_id !== 1 &&                                 // no es admin
-      !(role_id === 2 && profile.walker_id === authUserId)  // ni es paseador sobre su perfil
+      role_id !== 1 &&
+      !(role_id === 2 && profile.walker_id === authUserId)
     ) {
-      return res
-        .status(403)
-        .json({ msg: "Acceso denegado", error: true });
+      return res.status(403).json({ msg:"Acceso denegado", error:true });
     }
 
-    // 3) Formatear respuesta
+    //  Formatear y añadir photoUrl
+    const baseUrl = `${req.protocol}://${req.get("host")}/uploads`;
     const result = {
       walker_id:   profile.walker_id,
       name:        profile.user.name,
@@ -169,21 +188,20 @@ const get_profile_by_id = async (req, res) => {
       walker_type: profile.walker_type,
       zone:        profile.zone,
       photo:       profile.photo,
+      photoUrl:    `${baseUrl}/${profile.photo}`,
       description: profile.description,
       balance:     profile.balance,
       on_review:   profile.on_review
     };
 
     return res.json({
-      msg:   "Perfil encontrado exitosamente",
-      data:  result,
-      error: false
+      msg:  "Perfil encontrado exitosamente",
+      data: result,
+      error:false
     });
   } catch (error) {
     console.error("Error en get_profile_by_id:", error);
-    return res
-      .status(500)
-      .json({ msg: "Error en el servidor", error: true });
+    return res.status(500).json({ msg:"Error en el servidor", error:true });
   }
 };
 
