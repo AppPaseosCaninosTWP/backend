@@ -113,6 +113,25 @@ module.exports = {
         is_enable: true,
         ticket: false,
       },
+      //Usuarios utilizados para probar el redireccionamiento a whatsapp
+      {
+        name: "cliente_wsp",
+        email: "cliente_wsp@twp.com",
+        phone: "994205926", //frnnd num
+        password: common_password,
+        role_id: 3,
+        is_enable: true,
+        ticket: false,
+      },
+      {
+        name: "paseador_wsp",
+        email: "paseador_wsp@twp.com",
+        phone: "994205926", //frnnd num
+        password: common_password,
+        role_id: 2,
+        is_enable: true,
+        ticket: false,
+      },
     ]);
   },
 
