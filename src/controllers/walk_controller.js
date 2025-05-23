@@ -187,15 +187,15 @@ const create_walk = async (req, res) => {
 
 const get_available_walks = async (req, res) => {
   try {
-    // Validar parámetros de búsqueda si existem
-    const { zone, date} = req.query;
+    // Validar parámetros de búsqueda si existen
+    const { zone, date } = req.query;
 
-    let whereCondition = {
-      status: "pendiente",
+    const whereCondition = {
+      status:    "pendiente",
       walker_id: null,
     };
 
-    let includeConditions = [
+    const includeConditions = [
       {
         model: pet,
         as: "pets",
@@ -222,61 +222,63 @@ const get_available_walks = async (req, res) => {
     // Filtrar por sector si se proporciona
     if (zone) {
       includeConditions[0].where = {
-        zone: {
-          [Op.iLike]: `%${zone}%`,
-        },
+        zone: { [Op.iLike]: `%${zone}%` },
       };
     }
 
-    // Filtrar por fecha especifica si se proporciona
-    if (date && dayjs(date).isValid()) {
+    // Filtrar por fecha específica si se proporciona
+    if (date) {
+      if (!dayjs(date).isValid()) {
+        return res.status(400).json({
+          msg:   "Fecha inválida. Debe estar en formato YYYY-MM-DD.",
+          error: true
+        });
+      }
       includeConditions[2].where.start_date = {
         [Op.eq]: dayjs(date).format("YYYY-MM-DD"),
       };
-    } else if (date) {
-      return res
-        .status(400)
-        .json({
-          msg: "Fecha inválida. Debe estar en formato YYYY-MM-DD.",
-          error: true
-        });
     }
 
+    // ── LÍNEA AÑADIDA ──
+    // Construye baseUrl para servir las fotos de las mascotas
+    const baseUrl = `${req.protocol}://${req.get("host")}/uploads`;
+
     const walks = await walk.findAll({
-      where: whereCondition,
+      where:   whereCondition,
       include: includeConditions,
-      order: [["walk_id", "DESC"]]
+      order:   [["walk_id", "DESC"]],
     });
 
     const data = walks.map(w => {
-      const p = w.pets[0] || {};
-      const firstDay = w.days[0] || {};
+      const p        = w.pets[0]    || {};
+      const firstDay = w.days[0]    || {};
+
       return {
-        walk_id:   w.walk_id,
-        pet_id:   p.pet_id,
-        pet_name:  p.name,
-        pet_photo: p.photo,
-        sector:    p.zone,
-        walk_type: w.walk_type.name,
-        time:      firstDay.start_time,
-        date:      firstDay.start_date,
-        duration:  firstDay.duration,
+        walk_id:      w.walk_id,
+        pet_id:       p.pet_id,
+        pet_name:     p.name,
+        // ── CAMBIO AQUÍ ── devolvemos la URL completa en lugar del nombre de archivo
+        pet_photoUrl: p.photo
+                         ? `${baseUrl}/${p.photo}`
+                         : null,
+        sector:       p.zone,
+        walk_type:    w.walk_type.name,
+        time:         firstDay.start_time,
+        date:         firstDay.start_date,
+        duration:     firstDay.duration,
       };
     });
 
-    return res
-      .json({ 
-        msg: "Paseos disponibles obtenidos",
-        data,
-        error: false 
-      });
+    return res.json({
+      msg:   "Paseos disponibles obtenidos",
+      data,
+      error: false
+    });
+
   } catch (err) {
-    console
-    .error("Error en get_available_walks:", err);
-    return res
-    .status(500)
-    .json({
-      msg: "Error en el servidor",
+    console.error("Error en get_available_walks:", err);
+    return res.status(500).json({
+      msg:   "Error en el servidor",
       error: true
     });
   }

@@ -51,9 +51,8 @@ class Server {
     this.app.use(express.json());
 
     //  ► EXPONER IMÁGENES: 
-    //    /uploads/<archivo> --> project/uploads/<archivo>
     this.app.use(
-      "/uploads",
+      "/api/uploads",
       express.static(path.join(__dirname, "../../uploads"))
     );
 
