@@ -200,7 +200,7 @@ const get_profile_by_id = async (req, res) => {
       walker_type: profile.walker_type,
       zone:        profile.zone,
       photo:       profile.photo,
-      photoUrl:    `${baseUrl}/${profile.photo}`,
+      photo_url:    `${baseUrl}/${profile.photo}`,
       description: profile.description,
       balance:     profile.balance,
       on_review:   profile.on_review
@@ -367,7 +367,7 @@ const get_change_request_by_id = async (req, res) => {
         experience:  p.experience,
         walker_type: p.walker_type,
         zone:        p.zone,
-        photoUrl:    `${baseUrl}/${p.photo}`,
+        photo_url:    `${baseUrl}/${p.photo}`,
         description: p.description
       },
       pending: p.pending_changes
@@ -392,7 +392,7 @@ const get_change_requests = async (req, res) => {
       experience:  p.experience,
       walker_type: p.walker_type,
       zone:        p.zone,
-      photoUrl:    `${baseUrl}/${p.photo}`,
+      photo_url:    `${baseUrl}/${p.photo}`,
       description: p.description
     },
     pending: p.pending_changes

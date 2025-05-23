@@ -241,7 +241,7 @@ const get_available_walks = async (req, res) => {
 
     // ── LÍNEA AÑADIDA ──
     // Construye baseUrl para servir las fotos de las mascotas
-    const baseUrl = `${req.protocol}://${req.get("host")}/uploads`;
+    const baseUrl = `${req.protocol}://${req.get("host")}/api/uploads`;
 
     const walks = await walk.findAll({
       where:   whereCondition,
@@ -258,7 +258,7 @@ const get_available_walks = async (req, res) => {
         pet_id:       p.pet_id,
         pet_name:     p.name,
         // ── CAMBIO AQUÍ ── devolvemos la URL completa en lugar del nombre de archivo
-        pet_photoUrl: p.photo
+        pet_photo_url: p.photo
                          ? `${baseUrl}/${p.photo}`
                          : null,
         sector:       p.zone,
