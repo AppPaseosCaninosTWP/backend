@@ -11,6 +11,7 @@ const { Op } = require("sequelize");
 
 const COMMISSION_RATE = 0.1; // 10%
 
+// Crea un nuevo registro de pago con estado "pendiente"
 const create_payment = async (req, res) => {
   const { walk_id, amount } = req.body;
 
@@ -35,6 +36,7 @@ const create_payment = async (req, res) => {
   }
 };
 
+// Marca un pago como "completado"
 const process_payment = async (req, res) => {
   const { payment_id } = req.params;
 
@@ -61,10 +63,11 @@ const process_payment = async (req, res) => {
   }
 };
 
+// Aplica la comisión y transfiere el monto al paseador
 const verify_commission = async (req, res) => {
   const { payment_id } = req.params;
-
   try {
+    // Busca el pago con la relación al paseo y al paseador
     const record = await payment.findByPk(payment_id, {
       include: [
         {
@@ -88,9 +91,11 @@ const verify_commission = async (req, res) => {
       return res.status(400).json({ msg: "El pago aún no ha sido completado" });
     }
 
+    // Calcula la comisión y el monto neto para el paseador
     const commission = parseFloat((record.amount * COMMISSION_RATE).toFixed(2));
     const walker_amount = parseFloat((record.amount - commission).toFixed(2));
 
+    // Actualiza los valores financieros en el pago
     await payment.update(
       {
         commission,
@@ -100,6 +105,7 @@ const verify_commission = async (req, res) => {
       { where: { payment_id } }
     );
 
+    // Suma el monto al saldo/balance del paseador
     const walker = record.walk.walker;
     if (walker) {
       walker.balance = parseFloat(
@@ -125,6 +131,7 @@ const verify_commission = async (req, res) => {
   }
 };
 
+// Obtiene el saldo disponible para un paseador
 const get_balance = async (req, res) => {
   try {
     const profile = await walker_profile.findOne({
@@ -154,6 +161,7 @@ const get_balance = async (req, res) => {
   }
 };
 
+// Genera un comprobante PDF con información del pago
 const generate_receipt = async (req, res) => {
   try {
     const record = await payment.findByPk(req.params.payment_id, {
@@ -192,9 +200,11 @@ const generate_receipt = async (req, res) => {
       return res.status(400).json({ msg: "Datos del paseo incompletos" });
     }
 
+    // Inicializa documento PDF
     const doc = new PDFDocument();
     const formatted_date = dayjs(record.date).format("YYYY-MM-DD HH:mm:ss");
 
+    // Contenido del comprobante
     doc
       .fontSize(20)
       .text("Comprobante de Pago", { align: "center" })
@@ -252,6 +262,7 @@ const generate_receipt = async (req, res) => {
   }
 };
 
+// Devuelve todos los pagos asociados a un paseador
 const payment_history = async (req, res) => {
   try {
     const payments = await payment.findAll({
