@@ -547,6 +547,66 @@ const get_all_walks = async (req, res) => {
 };
 
 
+
+const get_history = async (req, res) => {
+  try {
+    const walker_id = req.user.user_id;
+    console.log("Attributes de Walk:", Object.keys(walk.rawAttributes));
+
+    const walks = await walk.findAll({
+      where: {
+        status:    'finalizado',
+        walker_id,
+      },
+      include: [
+        {
+          model: pet,
+          as: 'pets',
+          through: { attributes: [] },
+          attributes: ['pet_id','name','photo','zone']
+        },
+        {
+          model: walk_type,
+          as: 'walk_type',
+          attributes: ['name']
+        },
+        {
+          model: days_walk,
+          as: 'days',
+          attributes: ['start_date','start_time','duration'],
+          where: {
+            start_date: { [Op.lte]: dayjs().format('YYYY-MM-DD') }
+          }
+        }
+      ],
+      order: [['walk_id','DESC']],
+    });
+
+    const baseUrl = `${req.protocol}://${req.get('host')}/api/uploads`;
+    const data = walks.map(w => {
+      const d = w.days[0] || {};
+      return {
+        walk_id:    w.walk_id,
+        date:       d.start_date,
+        time:       d.start_time,
+        duration:   d.duration,
+        zone:      w.pets[0]?.zone,
+        label:      w.walk_type.name,
+        pet_name:   w.pets[0]?.name,
+        pet_photo:  w.pets[0]?.photo ? `${baseUrl}/${w.pets[0].photo}` : null
+      };
+    });
+
+    return res.json({ msg:'Historial cargado', data, error:false });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ msg:'Error en servidor', error:true });
+  }
+};
+
+
+
+
 const get_walk_by_id = async (req, res) => {
   const { id } = req.params;
   const { user_id, role_id } = req.user;
@@ -675,6 +735,7 @@ module.exports = {
   get_all_walks,
   get_available_walks,
   get_walk_by_id,
+  get_history,
   accept_walk,
   cancel_walk,
   get_assigned_walks,

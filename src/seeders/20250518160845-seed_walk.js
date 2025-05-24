@@ -79,6 +79,15 @@ module.exports = {
       client_id: 9,
       walker_id: null,
     },
+    // FINALIZADO para walker_id = 2 (para probar el historial)
+    {
+      walk_id:      9,
+      walk_type_id: 1,      // o el tipo que quieras
+      comments:     "Paseo finalizado de prueba para el paseador 2",
+      status:       "finalizado",
+      client_id:    11,     // un cliente cualquiera que exista en tu seed de users
+      walker_id:    2,      // ESTE es el paseador con id 2
+    },
 
     ];
 
@@ -92,6 +101,7 @@ module.exports = {
       { walk_id: 6, pet_id: 3 },  // Max
       { walk_id: 7, pet_id: 7 },  // Rocky
       { walk_id: 8, pet_id: 9 },  // Bruno
+      { walk_id: 9, pet_id: 4 },  // Luna
     ];
 
     const days_walks = [
@@ -143,6 +153,12 @@ module.exports = {
         start_date: dayjs().add(2, "day").format("YYYY-MM-DD"),
         start_time: "18:00",
         duration: 60,
+      },
+      {
+        walk_id:    9,
+        start_date: dayjs().subtract(3, "day").format("YYYY-MM-DD"),
+        start_time: "15:00",
+        duration:   45,
       },
     ];
 
