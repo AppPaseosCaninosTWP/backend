@@ -21,9 +21,9 @@ class Server {
     this.app  = express();
     this.port = process.env.PORT || 3000;
     this.paths = {
-      auth:           "/api/auth",
-      user:           "/api/user",
-      pet:            "/api/pet",
+      auth: "/api/auth",
+      user: "/api/user",
+      pet: "/api/pet",
       walker_profile: "/api/walker_profile",
       walk: "/api/walk",
       contact: "/api/contact",
@@ -46,17 +46,13 @@ class Server {
   }
 
   middlewares() {
-    // Logs + body parser JSON
     this.app.use(logger("dev"));
     this.app.use(express.json());
-
-    //  ► EXPONER IMÁGENES: 
     this.app.use(
       "/api/uploads",
       express.static(path.join(__dirname, "../../uploads"))
     );
 
-    // CORS y carpeta statics adicional
     this.app.use(
       cors({
         origin: [
@@ -74,9 +70,9 @@ class Server {
     this.app.get("/", (req, res) => {
       res.json({ message: "API running" });
     });
-    this.app.use(this.paths.auth,           auth_routes);
-    this.app.use(this.paths.user,           user_routes);
-    this.app.use(this.paths.pet,            pet_routes);
+    this.app.use(this.paths.auth, auth_routes);
+    this.app.use(this.paths.user, user_routes);
+    this.app.use(this.paths.pet, pet_routes);
     this.app.use(this.paths.walker_profile, walker_profile_routes);
     this.app.use(this.paths.walk, walk_routes);
     this.app.use(this.paths.contact, contact_routes);
