@@ -161,9 +161,37 @@ const request_reset_code = async (req, res) => {
   }
 };
 
+const verify_reset_code = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ msg: "Email y código son obligatorios", error: true });
+    }
+
+    const found_user = await user.findOne({ where: { email } });
+
+    if (
+      !found_user ||
+      found_user.reset_code !== code ||
+      !found_user.reset_code_expires ||
+      new Date() > found_user.reset_code_expires
+    ) {
+      return res.status(400).json({ msg: "Código inválido o expirado", error: true });
+    }
+
+    return res.json({ msg: "Código válido", error: false });
+  } catch (error) {
+    console.error("error en verify_reset_code:", error);
+    res.status(500).json({ msg: "Error en el servidor", error: true });
+  }
+};
+
+
 module.exports = {
   get_users,
   get_user_by_id,
   update_is_enable,
   request_reset_code,
+  verify_reset_code
 };
