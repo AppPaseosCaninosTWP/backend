@@ -2,6 +2,7 @@ const { Router } = require("express");
 const {
   login_user,
   register_user,
+  logout,
   request_password_reset,
   reset_password,
 } = require("../../controllers/auth_controller");
@@ -14,9 +15,11 @@ router.post("/login", login_user);
 // Permite registrarse
 router.post("/register", register_user);
 // Envia el codigo para restablecer la contraseña al email 
-router.post("/request-password-reset", request_password_reset);
+router.post("/request_password_reset", request_password_reset);
 // Permite restablecer la contraseña
-router.post("/reset-password", reset_password);
+router.post("/reset_password", reset_password);
+// Permite cerrar sesion
+router.post("/logout", validate_jwt, logout);
 
 // Verifica que el JWT es valido
 router.get("/verify", validate_jwt, (req, res) => {
