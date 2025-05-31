@@ -197,6 +197,21 @@ const register_user = async (req, res) => {
   }
 };
 
+const logout = async (req, res) => {
+  try {
+    return res.status(200).json({
+      msg: "Sesión cerrada exitosamente",
+      error: false,
+    });
+  } catch (err) {
+    console.error("Error en logout:", err);
+    return res.status(500).json({
+      msg: "Error al cerrar sesión",
+      error: true,
+    });
+  }
+};
+
 const request_password_reset = async (req, res) => {
   try {
     const { email } = req.body;
@@ -228,6 +243,39 @@ const request_password_reset = async (req, res) => {
     return res.json({ msg: "Código enviado a tu correo", error: false });
   } catch (err) {
     return res.status(500).json({ msg: "Error en el servidor", error: true });
+  }
+};
+
+const request_reset_code = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const found_user = await user.findOne({ where: { email } });
+
+    if (!found_user) {
+      return res.status(404).json({ msg: "correo no encontrado", error: true });
+    }
+
+    // Generar código de 5 dígitos
+    const reset_code = Math.floor(10000 + Math.random() * 90000).toString();
+    const expires_in = new Date(Date.now() + 15 * 60000); // 15 minutos desde ahora
+
+    // Guardar código y expiración en DB
+    await found_user.update({
+      reset_code,
+      reset_code_expires: expires_in,
+    });
+
+    await send_email(
+      email,
+      "Código de recuperación - TWP",
+      `Tu código de recuperación es: ${reset_code}. Este código expira en 15 minutos.`
+    );
+
+    res.json({ msg: "código enviado exitosamente", error: false });
+  } catch (error) {
+    console.error("error en request_reset_code:", error);
+    res.status(500).json({ msg: "error en el servidor", error: true });
   }
 };
 
@@ -290,6 +338,7 @@ const reset_password = async (req, res) => {
 module.exports = {
   login_user,
   register_user,
+  logout,
   request_password_reset,
   reset_password,
 };
