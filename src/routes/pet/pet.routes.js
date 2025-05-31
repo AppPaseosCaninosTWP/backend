@@ -15,13 +15,14 @@ const router = Router();
 router.use(validate_jwt);
 
 // Permite al cliente registrar una mascota
-router.post("/create_pet", allow_roles(1, 2, 3), upload_image.single('photo'), create_pet);
+router.post("/", allow_roles(1, 2, 3), upload_image.single('photo'), create_pet);
 
 // Obtiene las mascotas del sistema
-router.get("/get_pets", allow_roles(1, 2, 3), get_pets);
+router.get("/", allow_roles(1, 2, 3), get_pets);
 // Obtiene una mascota por id
-router.get("/get_pet_by_id/:id", allow_roles(1, 2, 3), get_pet_by_id);
+router.get("/:id", allow_roles(1, 2, 3), get_pet_by_id);
+
 // Actualiza la informacion de una mascota por id
-router.put("/update_pet/:id", allow_roles(1, 2, 3), update_pet);
+router.put("/:id", allow_roles(1, 2, 3), update_pet);
 
 module.exports = router;
