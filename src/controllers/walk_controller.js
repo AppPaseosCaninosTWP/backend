@@ -6,12 +6,14 @@ const {
   pet,
   days_walk,
   walker_profile,
+  payment,
 } = require("../models/database");
 
 const { Op } = require("sequelize");
 const { sendNotification } = require("../utils/send_notification");
 const dayjs = require("dayjs");
 const { generate_days_for_week } = require("../utils/date_service");
+const { calculate_payment_amount } = require("../utils/payment_service")
 
 const create_walk = async (req, res) => {
   const {
@@ -121,6 +123,19 @@ const create_walk = async (req, res) => {
           pet_walk.create({ walk_id: new_walk.walk_id, pet_id }, { transaction })
         )
       );
+
+      const amount = calculate_payment_amount({
+        duration: parseInt(duration),
+        num_pets: pet_ids.length,
+        num_days: days.length,
+      });
+
+      await payment.create({
+        amount,
+        date: dayjs().toDate(),
+        status: "pendiente",
+        walk_id: new_walk.walk_id,
+      }, { transaction });
 
       await transaction.commit();
 
@@ -382,8 +397,10 @@ const update_walk_status = async (req, res) => {
       await walk_record.update({ status: "pendiente", walker_id: null });
     } else if (new_status === "en_curso") {
       await walk_record.update({ status: "en_curso" });
+      //Logica tras el mod3
     } else if (new_status === "finalizado") {
       await walk_record.update({ status: "finalizado" });
+      //Logica tras el mod3
     }
 
     return res.json({ msg: `Paseo ${new_status}`, error: false });
