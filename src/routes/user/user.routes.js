@@ -3,14 +3,12 @@ const {
   get_users,
   get_user_by_id,
   update_is_enable,
-  request_reset_code,
   verify_reset_code,
 } = require("../../controllers/user_controller");
 const validate_jwt = require("../../middlewares/validate_jwt");
 const allow_roles = require("../../middlewares/allow_roles");
 
 const router = Router();
-router.post("/request_reset_code", request_reset_code);
 router.post("/verify_reset_code", verify_reset_code);
 
 router.use(validate_jwt);
