@@ -1,24 +1,20 @@
 const { Router } = require("express");
 const {
-  create_payment,
-  process_payment,
-  verify_commission,
-  get_balance,
-  generate_receipt,
-  payment_history,
+  get_all_payments,
+  get_payment_by_id,
+  update_payment_status,
 } = require("../../controllers/payment_controller");
 
 const validate_jwt = require("../../middlewares/validate_jwt");
+const allow_roles = require("../../middlewares/allow_roles");
 
 const router = Router();
-
 router.use(validate_jwt);
-router.post("/create_payment", create_payment);
-router.post("/process_payment/:payment_id", process_payment);
-router.post("/:payment_id/verify", verify_commission);
-router.get("/walker/:walker_id/balance", get_balance);
-router.get("/:payment_id/receipt", generate_receipt);
-router.get("/walkers/:walker_id/history", payment_history);
 
+router.put("/:id/status", allow_roles(3), update_payment_status);
+
+router.get("/:id", allow_roles(1, 2, 3), get_payment_by_id);
+
+router.get("/", allow_roles(1, 2, 3), get_all_payments);
 
 module.exports = router;
