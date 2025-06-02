@@ -15,10 +15,12 @@ router.post("/verify_reset_code", verify_reset_code);
 
 router.use(validate_jwt);
 
-router.get("/get_all_user", allow_roles(1), get_users);
-router.get("/get_user_id/:id", allow_roles(1), get_user_by_id);
-router.put("/is_enable/:id", allow_roles(1), update_is_enable);
+// Permite al administrador obtener todos los usuarios del sistema
+router.get("/", allow_roles(1), get_users);
+// Permite al administrador obtener un usuario por id
+router.get("/:id", allow_roles(1), get_user_by_id);
 
-module.exports = router;
+// Permite al administrador inhabilitar a un usuario del sistema
+router.put("/:id/status", allow_roles(1), update_is_enable);
 
 module.exports = router;

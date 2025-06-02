@@ -1,6 +1,5 @@
 const bcrypt = require("bcryptjs");
 const { user, role } = require("../models/database");
-const { send_email } = require("../utils/email_service");
 
 const get_users = async (req, res) => {
   try {
@@ -128,39 +127,6 @@ const update_is_enable = async (req, res) => {
   }
 };
 
-const request_reset_code = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const found_user = await user.findOne({ where: { email } });
-
-    if (!found_user) {
-      return res.status(404).json({ msg: "correo no encontrado", error: true });
-    }
-
-    // Generar código de 5 dígitos
-    const reset_code = Math.floor(10000 + Math.random() * 90000).toString();
-    const expires_in = new Date(Date.now() + 15 * 60000); // 15 minutos desde ahora
-
-    // Guardar código y expiración en DB
-    await found_user.update({
-      reset_code,
-      reset_code_expires: expires_in,
-    });
-
-    await send_email(
-      email,
-      "Código de recuperación - TWP",
-      `Tu código de recuperación es: ${reset_code}. Este código expira en 15 minutos.`
-    );
-
-    res.json({ msg: "código enviado exitosamente", error: false });
-  } catch (error) {
-    console.error("error en request_reset_code:", error);
-    res.status(500).json({ msg: "error en el servidor", error: true });
-  }
-};
-
 const verify_reset_code = async (req, res) => {
   try {
     const { email, code } = req.body;
@@ -192,6 +158,5 @@ module.exports = {
   get_users,
   get_user_by_id,
   update_is_enable,
-  request_reset_code,
   verify_reset_code
 };
