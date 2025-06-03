@@ -179,7 +179,8 @@ const get_all_walks = async (req, res) => {
         { model: user, as: "walker", attributes: ["email"] },
         { model: walk_type, as: "walk_type", attributes: ["name"] },
         { model: days_walk, as: "days" },
-      ],
+        { model: pet, as: "pets", through: { attributes: [] }, attributes: ["pet_id", "name", "photo", "zone"], },
+      ], 
       limit,
       offset,
       order: [["walk_id", "DESC"]],
@@ -196,7 +197,14 @@ const get_all_walks = async (req, res) => {
         start_time: day.start_time,
         duration: day.duration,
       })) ?? [],
+      pets: walk_record.pets?.map((pet) => ({
+        pet_id: pet.pet_id,
+        name: pet.name,
+        photo: pet.photo,
+        zone: pet.zone,
+      })) ?? [],
     }));
+
 
     return res.json({
       msg: "Paseos obtenidos exitosamente",
