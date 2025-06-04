@@ -197,21 +197,6 @@ const register_user = async (req, res) => {
   }
 };
 
-const logout = async (req, res) => {
-  try {
-    return res.status(200).json({
-      msg: "Sesión cerrada exitosamente",
-      error: false,
-    });
-  } catch (err) {
-    console.error("Error en logout:", err);
-    return res.status(500).json({
-      msg: "Error al cerrar sesión",
-      error: true,
-    });
-  }
-};
-
 const request_password_reset = async (req, res) => {
   try {
     const { email } = req.body;
@@ -338,7 +323,6 @@ const reset_password = async (req, res) => {
 module.exports = {
   login_user,
   register_user,
-  logout,
   request_password_reset,
   reset_password,
 };
