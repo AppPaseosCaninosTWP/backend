@@ -52,6 +52,7 @@ const get_user_by_id = async (req, res) => {
       msg: "usuario encontrado exitosamente",
       data: {
         user_id: found_user.user_id,
+        name: found_user.name,
         email: found_user.email,
         phone: found_user.phone,
         is_enable: found_user.is_enable,
