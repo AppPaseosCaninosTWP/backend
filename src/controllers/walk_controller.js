@@ -161,55 +161,122 @@ const get_all_walks = async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    let condition = {};
-    if (role_id === 3) condition.client_id = user_id;
-    else if (role_id === 2) {
-      condition = {
-        [Op.or]: [
-          { walker_id: user_id },
-          { status: "pendiente", walker_id: null },
+    let allWalks = [];
+
+    if (role_id === 3) {
+      // Cliente: solo ve sus propios paseos
+      allWalks = await walk.findAll({
+        where: { client_id: user_id },
+        include: [
+          { model: user, as: "client", attributes: ["email"] },
+          { model: user, as: "walker", attributes: ["email"] },
+          { model: walk_type, as: "walk_type", attributes: ["name"] },
+          { model: days_walk, as: "days" },
+          {
+            model: pet,
+            as: "pets",
+            through: { attributes: [] },
+            attributes: ["pet_id", "name", "photo", "zone"],
+          },
         ],
-      };
+        order: [["walk_id", "DESC"]],
+      });
+
+    } else if (role_id === 2) {
+      // Paseador: filtrar por zona de su perfil + sus paseos asignados
+      const walkerProfile = await walker_profile.findOne({
+        where: { walker_id: user_id },
+      });
+      if (!walkerProfile) {
+        return res.status(404).json({
+          msg: "Perfil de paseador no encontrado",
+          error: true,
+        });
+      }
+
+      const walkerZone = walkerProfile.zone;
+
+      // Obtenemos todos los paseos que estén asignados a él o pendientes
+      const rawWalks = await walk.findAll({
+        where: {
+          [Op.or]: [
+            { walker_id: user_id },
+            { status: "pendiente", walker_id: null },
+          ],
+        },
+        include: [
+          { model: user, as: "client", attributes: ["email"] },
+          { model: user, as: "walker", attributes: ["email"] },
+          { model: walk_type, as: "walk_type", attributes: ["name"] },
+          { model: days_walk, as: "days" },
+          {
+            model: pet,
+            as: "pets",
+            through: { attributes: [] },
+            attributes: ["pet_id", "name", "photo", "zone"],
+          },
+        ],
+        order: [["walk_id", "DESC"]],
+      });
+
+      // Filtrar en memoria para que un paseador solo vea:
+      // - sus propios paseos (walker_id === user_id)
+      // - o paseos pendientes donde al menos una mascota esté en su zona
+      allWalks = rawWalks.filter((w) => {
+        return (
+          w.walker_id === user_id ||
+          (w.status === "pendiente" &&
+            w.walker_id === null &&
+            w.pets.some((pet) => pet.zone === walkerZone))
+        );
+      });
+
+    } else {
+      allWalks = await walk.findAll({
+        include: [
+          { model: user, as: "client", attributes: ["email"] },
+          { model: user, as: "walker", attributes: ["email"] },
+          { model: walk_type, as: "walk_type", attributes: ["name"] },
+          { model: days_walk, as: "days" },
+          {
+            model: pet,
+            as: "pets",
+            through: { attributes: [] },
+            attributes: ["pet_id", "name", "photo", "zone"],
+          },
+        ],
+        order: [["walk_id", "DESC"]],
+      });
     }
 
-    const { count, rows } = await walk.findAndCountAll({
-      where: condition,
-      include: [
-        { model: user, as: "client", attributes: ["email"] },
-        { model: user, as: "walker", attributes: ["email"] },
-        { model: walk_type, as: "walk_type", attributes: ["name"] },
-        { model: days_walk, as: "days" },
-        { model: pet, as: "pets", through: { attributes: [] }, attributes: ["pet_id", "name", "photo", "zone"], },
-      ], 
-      limit,
-      offset,
-      order: [["walk_id", "DESC"]],
-    });
+    const total = allWalks.length;
+    const paginated = allWalks.slice(offset, offset + limit);
 
-    const data = rows.map((walk_record) => ({
+    const data = paginated.map((walk_record) => ({
       walk_id: walk_record.walk_id,
       walk_type: walk_record.walk_type?.name,
       status: walk_record.status,
       client_email: walk_record.client?.email,
       walker_email: walk_record.walker?.email ?? null,
-      days: walk_record.days?.map((day) => ({
-        start_date: day.start_date,
-        start_time: day.start_time,
-        duration: day.duration,
-      })) ?? [],
-      pets: walk_record.pets?.map((pet) => ({
-        pet_id: pet.pet_id,
-        name: pet.name,
-        photo: pet.photo,
-        zone: pet.zone,
-      })) ?? [],
+      days:
+        walk_record.days?.map((day) => ({
+          start_date: day.start_date,
+          start_time: day.start_time,
+          duration: day.duration,
+        })) ?? [],
+      pets:
+        walk_record.pets?.map((pet) => ({
+          pet_id: pet.pet_id,
+          name: pet.name,
+          photo: pet.photo,
+          zone: pet.zone,
+        })) ?? [],
     }));
-
 
     return res.json({
       msg: "Paseos obtenidos exitosamente",
       data,
-      total: count,
+      total,
       page,
       limit,
       error: false,
