@@ -82,7 +82,6 @@ describe("redirect_whatsapp", () => {
       msg: "No tienes paseos activos con este usuario",
     });
   });
-  
   //3. Redirección válida con paseo activo (200)
   test("retorna 200 con link de whatsapp y datos si hay paseo activo", async () => {
     // Usuario receptor simulado (existe en BD)
@@ -122,5 +121,39 @@ describe("redirect_whatsapp", () => {
         whatsapp_link: `https://wa.me/56${receptor.phone}`,
       },
     });
+  });
+
+  //4. Link generado tiene el formato correcto (https://wa.me/56...)
+  test("genera el link de whatsapp correctamente con formato https://wa.me/56...", async () => {
+    const receptor = {
+      user_id: 3,
+      name: "Carlos",
+      role_id: 2,
+      phone: "987654321",
+    };
+
+    user.findByPk.mockResolvedValue(receptor);
+
+    walk.findOne.mockResolvedValue({
+      walk_id: 88,
+      client_id: 1,
+      walker_id: 3,
+      status: "activo",
+    });
+
+    const request = build_mock_request(1, 3);
+    const response = build_mock_response();
+
+    await redirect_whatsapp(request, response);
+
+    const expected_link = `https://wa.me/56${receptor.phone}`;
+
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          whatsapp_link: expected_link,
+        }),
+      })
+    );
   });
 });
