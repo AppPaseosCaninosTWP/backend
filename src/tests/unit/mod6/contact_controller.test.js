@@ -156,4 +156,22 @@ describe("redirect_whatsapp", () => {
       })
     );
   });
+
+  //5. Error interno del servidor (500)
+  test("retorna 500 si ocurre un error inesperado en el servidor", async () => {
+    
+    // Simula que findByPk lanza una excepción
+    user.findByPk.mockRejectedValue(new Error("DB failure"));
+
+    const request = build_mock_request(1, 99);
+    const response = build_mock_response();
+
+    await redirect_whatsapp(request, response);
+
+    expect(response.status).toHaveBeenCalledWith(500);
+    expect(response.json).toHaveBeenCalledWith({
+      error: true,
+      msg: "Error en el servidor",
+    });
+  });
 });
