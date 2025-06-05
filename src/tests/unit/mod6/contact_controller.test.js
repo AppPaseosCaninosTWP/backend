@@ -159,7 +159,9 @@ describe("redirect_whatsapp", () => {
 
   //5. Error interno del servidor (500)
   test("retorna 500 si ocurre un error inesperado en el servidor", async () => {
-    
+    const original_console_error = console.error;
+    console.error = jest.fn(); // Silencia el error
+
     // Simula que findByPk lanza una excepción
     user.findByPk.mockRejectedValue(new Error("DB failure"));
 
@@ -173,5 +175,7 @@ describe("redirect_whatsapp", () => {
       error: true,
       msg: "Error en el servidor",
     });
+
+    console.error = original_console_error; // Restaurar
   });
 });
