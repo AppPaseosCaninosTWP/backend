@@ -55,4 +55,31 @@ describe("redirect_whatsapp", () => {
       msg: "Usuario no encontrado",
     });
   });
+
+  //2. No hay paseo activo entre los usuarios (403)
+  test("retorna 403 si no hay paseo activo entre los usuarios", async () => {
+    // Simula que el receptor sí existe
+    user.findByPk.mockResolvedValue({
+      user_id: 2,
+      name: "Juan",
+      role_id: 3,
+      phone: "912345678",
+    });
+
+    // Simula que NO hay paseo activo entre ambos usuarios
+    walk.findOne.mockResolvedValue(null);
+
+    const request = build_mock_request(1, 2); // current_user_id = 1, target_user_id = 2
+    const response = build_mock_response();
+
+    await redirect_whatsapp(request, response);
+
+    expect(user.findByPk).toHaveBeenCalledWith(2);
+    expect(walk.findOne).toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(403);
+    expect(response.json).toHaveBeenCalledWith({
+      error: true,
+      msg: "No tienes paseos activos con este usuario",
+    });
+  });
 });
