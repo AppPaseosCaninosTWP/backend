@@ -75,7 +75,7 @@ module.exports = {
         password: common_password,
         role_id: 3,
         is_enable: true,
-        ticket: false,
+        ticket: true,
       },
       {
         name: "Lucía Cliente",
@@ -84,7 +84,7 @@ module.exports = {
         password: common_password,
         role_id: 3,
         is_enable: true,
-        ticket: false,
+        ticket: true,
       },
       {
         name: "Mario Cliente",
@@ -93,7 +93,7 @@ module.exports = {
         password: common_password,
         role_id: 3,
         is_enable: true,
-        ticket: false,
+        ticket: true,
       },
       {
         name: "Sara Cliente",
@@ -102,7 +102,7 @@ module.exports = {
         password: common_password,
         role_id: 3,
         is_enable: true,
-        ticket: false,
+        ticket: true,
       },
       {
         name: "David Cliente",
@@ -111,7 +111,7 @@ module.exports = {
         password: common_password,
         role_id: 3,
         is_enable: true,
-        ticket: false,
+        ticket: true,
       },
       //Usuarios utilizados para probar el redireccionamiento a whatsapp
       {
@@ -121,7 +121,7 @@ module.exports = {
         password: common_password,
         role_id: 3,
         is_enable: true,
-        ticket: false,
+        ticket: true,
       },
       {
         name: "paseador_wsp",
