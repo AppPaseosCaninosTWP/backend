@@ -273,22 +273,23 @@ const isValidEmail = (email) => {
 };
 
 
-const assing_payment_to_walker = async (req, res) => {
+const assign_payment_to_walker = async (req, res) => {
   const { id } = req.params;
   const { user_id, role_id } = req.user;
 
   if (!id || isNaN(Number(id))) {
     return res.status(400).json({ msg: "ID de pago inválido", error: true });
   }
-  try{
+
+  try {
     const payment_record = await payment.findByPk(id, {
       include: [
         {
           model: walk,
           as: "walk",
           include: [
-            { model: user, as: "client", attributes: ["id", "email", "name"] },
-            { model: user, as: "walker", attributes: ["id", "email", "name"] },
+            { model: user, as: "client", attributes: ["user_id", "email", "name"] },
+            { model: user, as: "walker", attributes: ["user_id", "email", "name"] },
           ],
         },
       ],
@@ -302,7 +303,7 @@ const assing_payment_to_walker = async (req, res) => {
       return res.status(403).json({ msg: "Solo los administradores pueden asignar pagos", error: true });
     }
 
-    if(payment_record.status !== "confirmado") {
+    if (payment_record.status !== "confirmado") {
       return res.status(400).json({ msg: "Solo se pueden asignar pagos confirmados", error: true });
     }
 
@@ -335,13 +336,16 @@ const assing_payment_to_walker = async (req, res) => {
         client_name: payment_record.walk.client.name,
         walk_date: payment_record.walk.scheduled_date,
         walk_duration: payment_record.walk.duration,
-    };
+      };
 
-    await send_payment_notification_to_walker(walker_notification_data);
-    console.log('Notificacion enviada al paseador: $(payment_record.walk.walker.email)');
+      await send_payment_notification_to_walker(walker_notification_data);
+      console.log(`Notificación enviada al paseador: ${payment_record.walk.walker.email}`);
     } catch (emailError) {
       console.error("Error al enviar la notificación al paseador:", emailError);
-      return res.status(500).json({ msg: "Pago asignado, pero error al notificar al paseador", error: true });
+      return res.status(500).json({ 
+        msg: "Pago asignado, pero error al notificar al paseador", 
+        error: true 
+      });
     }
 
     
@@ -349,6 +353,7 @@ const assing_payment_to_walker = async (req, res) => {
     if (!walker) {
       return res.status(404).json({ msg: "Paseador no encontrado", error: true });
     }
+    
     walker.balance = walker.balance + walker_amount;
     await walker.save();
     
@@ -364,7 +369,7 @@ const assing_payment_to_walker = async (req, res) => {
       msg: "Pago asignado exitosamente al paseador",
       error: false,
       data: {
-        walker_id: payment_record.walk.walker.id,
+        walker_id: payment_record.walk.walker.user_id,
         walker_name: payment_record.walk.walker.name,
         total_amount: total_amount,
         commission_amount: commission_amount,
@@ -373,8 +378,17 @@ const assing_payment_to_walker = async (req, res) => {
       },
     });
   } catch(err) {
-    console.error("Error en assing_payment_to_walker:", err);
-    return res.status(500).json({ msg: "Error al asignar el pago al paseador", error: true });
+    console.error("Error en assign_payment_to_walker:", {
+      error: err.message,
+      stack: err.stack,
+      params: req.params,
+      user: req.user
+    });
+    return res.status(500).json({ 
+      msg: "Error interno al asignar el pago", 
+      error: true,
+      debug: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -384,5 +398,5 @@ module.exports = {
   get_all_payments,
   get_payment_by_id,
   generate_payment_receipt,
-  assing_payment_to_walker,
+  assign_payment_to_walker,
 };
