@@ -1,7 +1,6 @@
-const { payment, user, walk } = require("../models/database");
+const { payment, user, walk, days_walk, walk_type } = require("../models/database");
 const { Op } = require("sequelize");
 const { send_payment_receipt, send_payment_notification_to_walker } = require("../utils/mail_service_payment");
-const { assign } = require("nodemailer/lib/shared");
 
 const update_payment_status = async (req, res) => {
   const { id } = req.params;
@@ -121,20 +120,31 @@ const get_payment_by_id = async (req, res) => {
 const generate_payment_receipt = async (req, res) => {
   const { id } = req.params;
   const { user_id, role_id } = req.user;
-
+ 
   if (!id || isNaN(Number(id))) {
     return res.status(400).json({ msg: "ID de pago inválido", error: true });
   }
-
+ 
   try {
+    // Consulta principal
     const payment_record = await payment.findByPk(id, {
       include: [
         {
           model: walk,
           as: "walk",
+          attributes: ['walk_id', 'walk_type_id', 'comments', 'status', 'client_id', 'walker_id'],
           include: [
-            { model: user, as: "client", attributes: ["id", "email", "name"] },
-            { model: user, as: "walker", attributes: ["id", "email", "name"] },
+            { 
+              model: user, 
+              as: "client", 
+              attributes: ["user_id", "email", "name"] 
+            },
+            {
+              model: user,
+              as: "walker",
+              attributes: ["user_id", "email", "name"],
+              required: false
+            }
           ],
         },
       ],
@@ -143,46 +153,125 @@ const generate_payment_receipt = async (req, res) => {
     if (!payment_record) {
       return res.status(404).json({ msg: "Pago no encontrado", error: true });
     }
+    
+    if (!payment_record.walk) {
+      return res.status(404).json({ msg: "Walk asociado al pago no encontrado", error: true });
+    }
+    
+    if (!payment_record.walk.client) {
+      return res.status(404).json({ msg: "Cliente del walk no encontrado", error: true });
+    }
 
-    const is_owner = payment_record.walk?.client_id === user_id;
-    const is_walker = payment_record.walk?.walker_id === user_id;
+    // Validar email del cliente
+    if (!payment_record.walk.client.email || !isValidEmail(payment_record.walk.client.email)) {
+      return res.status(400).json({ msg: "Email del cliente no válido", error: true });
+    }
+
+    // Verificar permisos
+    const is_owner = payment_record.walk.client_id === user_id;
+    const is_walker = payment_record.walk.walker_id === user_id;
     const can_access = role_id === 1 || is_owner || is_walker;
-
+    
     if (!can_access) {
       return res.status(403).json({ msg: "No tienes permiso para generar este comprobante", error: true });
     }
 
-    if( payment_record.status !== "confirmado") {
+    if (payment_record.status !== "pagado") {
       return res.status(400).json({ msg: "Solo se pueden generar comprobantes para pagos confirmados", error: true });
     }
 
-    const receipt_data = {
-      payment_id: payment_record.id,
-      walk_id: payment_record.walk.id,
-      amount: payment_record.amount,
-      status: payment_record.status,
-      payment_date: payment_record.payment_date,
-      client_email: payment_record.walk.client.email,
-      client_name: payment_record.walk.client.name,
-      walker_email: payment_record.walk.walker.email,
-      walker_name: payment_record.walk.walker.name,
-      walk_duration: payment_record.walk.duration,
-      walk_date: payment_record.walk.date,
-    };
-
-    await send_payment_receipt(receipt_data);
-
-    return res.json({
-      msg: "Comprobante de pago generado y enviado por correo electrónico",
-      error: false,
-      data: { receipt_send_to: receipt_data.client_email}
+    // Obtener datos de days_walk usando el modelo directamente
+    const walkDays = await days_walk.findAll({
+      where: { walk_id: payment_record.walk.walk_id },
+      attributes: ['start_date', 'start_time', 'duration'],
+      order: [['start_date', 'ASC']],
+      raw: true
     });
 
-  }catch (err) {
-    console.error("Error en generate_payment_receipt:", err);
-    return res.status(500).json({ msg: "Error al generar el comprobante de pago", error: true });
+    // Obtener nombre del walk_type usando el modelo directamente
+    const walkType = await walk_type.findOne({
+      where: { walk_type_id: payment_record.walk.walk_type_id },
+      attributes: ['name'],
+      raw: true
+    });
+
+    const firstWalkDay = walkDays.length > 0 ? walkDays[0] : null;
+    const walkTypeName = walkType ? walkType.name : "Tipo no especificado";
+
+    const receipt_data = {
+      payment_id: payment_record.payment_id,
+      walk_id: payment_record.walk.walk_id,
+      amount: payment_record.amount,
+      status: payment_record.status,
+      payment_date: payment_record.date,
+      client_email: payment_record.walk.client.email,
+      client_name: payment_record.walk.client.name,
+      walker_email: payment_record.walk.walker?.email || "No asignado",
+      walker_name: payment_record.walk.walker?.name || "No asignado",
+      walk_duration: firstWalkDay?.duration || null,
+      walk_date: firstWalkDay?.start_date || null,
+      walk_time: firstWalkDay?.start_time || null,
+      walk_type: walkTypeName,
+      total_walk_days: walkDays.length
+    };
+
+    console.log("Datos del receipt preparados:", receipt_data);
+
+    // Intentar enviar el comprobante
+    try {
+      await send_payment_receipt(receipt_data);
+      
+      return res.json({
+        msg: "Comprobante de pago generado y enviado por correo electrónico",
+        error: false,
+        data: { 
+          receipt_send_to: receipt_data.client_email,
+          payment_id: receipt_data.payment_id
+        }
+      });
+      
+    } catch (emailError) {
+      console.error("Error específico enviando email:", emailError);
+      
+      // Determinar el tipo de error
+      let error_message = "Error desconocido en el servicio de correo";
+      let status_code = 500;
+      
+      if (emailError.code === 'EAUTH') {
+        error_message = "Error de autenticación con el servicio de correo";
+        status_code = 503;
+      } else if (emailError.responseCode === 550) {
+        error_message = "Dirección de correo no válida";
+        status_code = 400;
+      }
+      
+      return res.status(status_code).json({
+        msg: `Pago confirmado, pero ${error_message}`,
+        error: true,
+        warning: true,
+        data: { 
+          payment_id: receipt_data.payment_id,
+          email_error: error_message,
+          suggestion: "Contacte al administrador para reenviar el comprobante"
+        }
+      });
+    }
+   
+  } catch (err) {
+    console.error("Error general en generate_payment_receipt:", err);
+    return res.status(500).json({ 
+      msg: "Error interno del servidor", 
+      error: true,
+      debug: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
+
+const isValidEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 
 const assing_payment_to_walker = async (req, res) => {
   const { id } = req.params;
@@ -288,8 +377,12 @@ const assing_payment_to_walker = async (req, res) => {
     return res.status(500).json({ msg: "Error al asignar el pago al paseador", error: true });
   }
 };
+
+
 module.exports = {
   update_payment_status,
   get_all_payments,
   get_payment_by_id,
+  generate_payment_receipt,
+  assing_payment_to_walker,
 };
