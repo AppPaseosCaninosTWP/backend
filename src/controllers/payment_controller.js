@@ -368,12 +368,17 @@ const assign_payment_to_walker = async (req, res) => {
       return res.status(403).json({ msg: "Solo los administradores pueden asignar pagos", error: true });
     }
 
-    if (payment_record.status !== "pagado") {
-      return res.status(400).json({ msg: "Solo se pueden asignar pagos confirmados", error: true });
+    if (payment_record.status !== "pagado") { // Cambiado de "confirmado" a "pagado"
+      return res.status(400).json({ msg: "Solo se pueden asignar pagos con estado 'pagado'", error: true });
     }
 
     if (payment_record.walker_assigned === true) {
       return res.status(400).json({ msg: "Este pago ya ha sido asignado al paseador", error: true });
+    }
+
+    // Verificar que el walker esté asignado al paseo
+    if (!payment_record.walk.walker) {
+      return res.status(400).json({ msg: "No hay un paseador asignado a este paseo", error: true });
     }
 
     const total_amount = payment_record.amount;
@@ -392,7 +397,7 @@ const assign_payment_to_walker = async (req, res) => {
       const walker_notification_data = {
         walker_email: payment_record.walk.walker.email,
         walker_name: payment_record.walk.walker.name,
-        payment_id: payment_record.id,
+        payment_id: payment_record.payment_id,
         walk_id: payment_record.walk_id,
         walker_amount: walker_amount,
         commission_amount: commission_amount,
@@ -409,23 +414,23 @@ const assign_payment_to_walker = async (req, res) => {
       console.error("Error al enviar la notificación al paseador:", emailError);
       return res.status(500).json({ 
         msg: "Pago asignado, pero error al notificar al paseador", 
-        error: true 
+        error: true,
+        warning: true
       });
     }
 
-    
     const walker = await user.findByPk(payment_record.walk.walker_id);
     if (!walker) {
       return res.status(404).json({ msg: "Paseador no encontrado", error: true });
     }
     
-    walker.balance = walker.balance + walker_amount;
+    walker.balance = (walker.balance || 0) + walker_amount;
     await walker.save();
     
     await payment.create({
       user_id: payment_record.walk.walker_id,
       amount: walker_amount,
-      status: "confirmado",
+      status: "pagado",
       walk_id: payment_record.walk_id,
       description: `Pago por caminata ${payment_record.walk_id} asignado al paseador`,
     });
