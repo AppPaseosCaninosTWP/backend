@@ -95,7 +95,7 @@ describe("login_user", () => {
     });
   });
 
-    // 4. Usuario deshabilitado (403)
+  // 4. Usuario deshabilitado (403)
   test("retorna 403 si el usuario está deshabilitado", async () => {
     user.findOne.mockResolvedValue({ is_enable: false });
 
@@ -107,6 +107,29 @@ describe("login_user", () => {
     expect(response.status).toHaveBeenCalledWith(403);
     expect(response.json).toHaveBeenCalledWith({
       msg: "Usuario deshabilitado. Contacte soporte.",
+      data: null,
+      error: true,
+    });
+  });
+
+  // 5. Contraseña incorrecta (401)
+  test("retorna 401 si la contraseña es incorrecta", async () => {
+    user.findOne.mockResolvedValue({
+      email: "test@example.com",
+      password: "hashed_password",
+      is_enable: true,
+    });
+
+    bcrypt.compare.mockResolvedValue(false);
+
+    const request = build_mock_request("test@example.com", "wrong_password");
+    const response = build_mock_response();
+
+    await login_user(request, response);
+
+    expect(response.status).toHaveBeenCalledWith(401);
+    expect(response.json).toHaveBeenCalledWith({
+      msg: "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
       data: null,
       error: true,
     });
