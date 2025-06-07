@@ -135,7 +135,7 @@ describe("login_user", () => {
     });
   });
 
-    // 6. Login exitoso (200)
+  // 6. Login exitoso (200)
   test("retorna 200 con token y datos si login es exitoso", async () => {
     user.findOne.mockResolvedValue({
       user_id: 1,
@@ -168,5 +168,27 @@ describe("login_user", () => {
       },
       error: false,
     });
+  });
+
+  // 7. Error interno del servidor (500)
+  test("retorna 500 si ocurre un error inesperado", async () => {
+    const original_console_error = console.error;
+    console.error = jest.fn(); // Silenciar temporalmente
+
+    user.findOne.mockRejectedValue(new Error("DB failure"));
+
+    const request = build_mock_request("test@example.com", "Password123");
+    const response = build_mock_response();
+
+    await login_user(request, response);
+
+    expect(response.status).toHaveBeenCalledWith(500);
+    expect(response.json).toHaveBeenCalledWith({
+      msg: "Error en el servidor",
+      data: null,
+      error: true,
+    });
+
+    console.error = original_console_error; // Restaurar
   });
 });
