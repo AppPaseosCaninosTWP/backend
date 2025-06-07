@@ -63,7 +63,6 @@ describe("login_user", () => {
     });
   });
 
-  
   // 2. Formato de email inválido (400)
   test("retorna 400 si el email tiene formato inválido", async () => {
     const request = build_mock_request("correo@invalido", "Password123");
@@ -74,6 +73,23 @@ describe("login_user", () => {
     expect(response.status).toHaveBeenCalledWith(400);
     expect(response.json).toHaveBeenCalledWith({
       msg: "Correo electrónico inválido",
+      data: null,
+      error: true,
+    });
+  });
+
+  // 3. Usuario no encontrado (404)
+  test("retorna 404 si el usuario no existe", async () => {
+    user.findOne.mockResolvedValue(null);
+
+    const request = build_mock_request("test@example.com", "Password123");
+    const response = build_mock_response();
+
+    await login_user(request, response);
+
+    expect(response.status).toHaveBeenCalledWith(404);
+    expect(response.json).toHaveBeenCalledWith({
+      msg: "Las credenciales de acceso son incorrectas o el usuario no está registrado.",
       data: null,
       error: true,
     });
