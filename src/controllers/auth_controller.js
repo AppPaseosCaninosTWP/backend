@@ -83,6 +83,7 @@ const login_user = async (req, res) => {
       data: {
         user: {
           user_id: user_.user_id,
+          name: user_.name,
           email: user_.email,
           phone: user_.phone,
           role: user_.role ? user_.role.name : null,
