@@ -1,4 +1,4 @@
-const { payment, user, walk, days_walk, walk_type } = require("../models/database");
+const { payment, user, walk, days_walk, walk_type, walker_profile } = require("../models/database");
 const { Op } = require("sequelize");
 const { send_payment_receipt, send_payment_notification_to_walker } = require("../utils/email/mail_service_payment");
 
@@ -326,7 +326,7 @@ const assign_payment_to_walker = async (req, res) => {
       return res.status(403).json({ msg: "Solo los administradores pueden asignar pagos", error: true });
     }
 
-    if (payment_record.status !== "pagado") { // Cambiado de "confirmado" a "pagado"
+    if (payment_record.status !== "pagado") {
       return res.status(400).json({ msg: "Solo se pueden asignar pagos con estado 'pagado'", error: true });
     }
 
@@ -379,13 +379,19 @@ const assign_payment_to_walker = async (req, res) => {
       });
     }
 
-    const walker = await user.findByPk(payment_record.walk.walker_id);
-    if (!walker) {
-      return res.status(404).json({ msg: "Paseador no encontrado", error: true });
+    // CORRECCIÓN: Actualizar el balance en walker_profile en lugar de user
+    const walker_profile_record = await walker_profile.findByPk(payment_record.walk.walker_id);
+    if (!walker_profile_record) {
+      return res.status(404).json({ msg: "Perfil de paseador no encontrado", error: true });
     }
     
-    walker.balance = (walker.balance || 0) + walker_amount;
-    await walker.save();
+    // Actualizar el balance del walker_profile
+    const current_balance = parseFloat(walker_profile_record.balance) || 0;
+    const new_balance = current_balance + parseFloat(walker_amount);
+    
+    await walker_profile_record.update({
+      balance: new_balance
+    });
     
     await payment.create({
       user_id: payment_record.walk.walker_id,
@@ -405,6 +411,7 @@ const assign_payment_to_walker = async (req, res) => {
         commission_amount: commission_amount,
         walker_amount: walker_amount,
         assignment_date: payment_record.assignment_date,
+        new_balance: new_balance
       },
     });
   } catch(err) {
