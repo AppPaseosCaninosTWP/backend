@@ -7,6 +7,7 @@ const {
   days_walk,
   walker_profile,
   payment,
+  rating
 } = require("../models/database");
 
 const { Op } = require("sequelize");
@@ -612,11 +613,10 @@ const get_walk_assigned = async (req, res) => {
 
 const update_walk_status = async (req, res) => {
   const { id } = req.params;
-  const { new_status } = req.body;
+  const { new_status, walker_rating, client_rating } = req.body;
   const { user_id, role_id } = req.user;
 
   const valid_statuses = ["confirmado", "cancelado", "en_curso", "finalizado"];
-
   if (!valid_statuses.includes(new_status)) {
     return res.status(400).json({ msg: "Estado inválido", error: true });
   }
@@ -632,6 +632,7 @@ const update_walk_status = async (req, res) => {
         return res.status(400).json({ msg: "Solo paseos pendientes pueden confirmarse", error: true });
       }
       await walk_record.update({ status: "confirmado", walker_id: user_id });
+
     } else if (new_status === "cancelado") {
       const walk_day = await days_walk.findOne({
         where: { walk_id: id },
@@ -644,14 +645,46 @@ const update_walk_status = async (req, res) => {
       if (diff_minutes < 30) {
         return res.status(400).json({ msg: "No se puede cancelar con menos de 30 minutos de anticipación", error: true });
       }
-
       await walk_record.update({ status: "pendiente", walker_id: null });
+
     } else if (new_status === "en_curso") {
       await walk_record.update({ status: "en_curso" });
-      //Logica tras el mod3
+      // logica tras mod 3
     } else if (new_status === "finalizado") {
+      // 1) Marco como finalizado
       await walk_record.update({ status: "finalizado" });
-      //Logica tras el mod3
+
+      // 2) Creo calificaciones solo si vienen del front
+      const tasks = [];
+
+      // Paseador califica a cliente
+      if (walker_rating && walker_rating.value != null) {
+        tasks.push(
+          rating.create({
+            value:      walker_rating.value,
+            comment:    walker_rating.comment,
+            sender_id:   user_id,                  // id del paseador
+            receiver_id: walk_record.client_id,    // id del cliente
+            walk_id:     walk_record.walk_id,
+          })
+        );
+      }
+
+      // Cliente califica a paseador
+      if (client_rating && client_rating.value != null) {
+        tasks.push(
+          rating.create({
+            value:      client_rating.value,
+            comment:    client_rating.comment,
+            sender_id:   walk_record.client_id,    // id del cliente
+            receiver_id: user_id,                  // id del paseador
+            walk_id:     walk_record.walk_id,
+          })
+        );
+      }
+
+      await Promise.all(tasks);
+      // logica del pago y asignacion de balances, etc.
     }
 
     return res.json({ msg: `Paseo ${new_status}`, error: false });
