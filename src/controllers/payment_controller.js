@@ -1,6 +1,6 @@
 const { payment, user, walk, days_walk, walk_type } = require("../models/database");
 const { Op } = require("sequelize");
-const { send_payment_receipt, send_payment_notification_to_walker } = require("../utils/mail_service_payment");
+const { send_payment_receipt, send_payment_notification_to_walker } = require("../utils/email/mail_service_payment");
 
 const update_payment_status = async (req, res) => {
   const { id } = req.params;
