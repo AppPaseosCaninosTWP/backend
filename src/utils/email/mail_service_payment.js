@@ -1,39 +1,28 @@
 const nodemailer = require('nodemailer');
 
-// Configuración independiente para notificaciones de pagos
-const paymentTransporter = nodemailer.createTransport({
-  service: process.env.PAYMENT_SMTP_SERVICE || 'gmail',
-  host: process.env.PAYMENT_SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.PAYMENT_SMTP_PORT || 465,
-  secure: true,
-  auth: {
-    user: process.env.PAYMENT_SMTP_USER,
-    pass: process.env.PAYMENT_SMTP_PASS
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-});
-
-const send_payment_email = async (to, subject, text) => {
+const send_payment_email = async (to, subject, text_content) => {
   try {
-    const mailOptions = {
-      from: `"App Paseos Caninos - Pagos" <${process.env.PAYMENT_SMTP_USER}>`,
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const mail_options = {
+      from: `"App Paseos Caninos TWP" <${process.env.SMTP_USER}>`,
       to,
       subject,
-      text,
-      replyTo: process.env.PAYMENT_REPLY_TO || 'no-reply@paseoscaninos.com'
+      text: text_content,
     };
 
-    await paymentTransporter.sendMail(mailOptions);
-    console.log(`Email de pago enviado a: ${to}`);
+    await transporter.sendMail(mail_options);
   } catch (error) {
-    console.error('Error en send_payment_email:', {
-      to,
-      error: error.message,
-      stack: error.stack
-    });
-    throw error;
+    console.error("error enviando correo:", error);
+    throw new Error("error enviando correo electrónico");
   }
 };
 
