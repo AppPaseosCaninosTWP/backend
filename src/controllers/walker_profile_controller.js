@@ -39,12 +39,10 @@ const create_walker_profile = async (req, res) => {
 
     // 2) Validaciones básicas (mismas que register_user)
     if (!name || name.length > 50) {
-      return res
-        .status(400)
-        .json({
-          error: true,
-          msg: "El nombre es obligatorio y ≤50 caracteres",
-        });
+      return res.status(400).json({
+        error: true,
+        msg: "El nombre es obligatorio y ≤50 caracteres",
+      });
     }
     if (!email || !validator.isEmail(email)) {
       return res.status(400).json({ error: true, msg: "Email inválido" });

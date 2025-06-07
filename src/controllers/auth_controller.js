@@ -1,3 +1,4 @@
+require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const validator = require("validator");
@@ -5,6 +6,8 @@ const crypto = require("crypto");
 const { user } = require("../models/database");
 const { Op } = require("sequelize");
 const { send_email } = require("../utils/email/email_service");
+const { send_sms } = require("../utils/send_sms_service"); 
+
 // ————————————————
 // Inicio de sesión
 // ————————————————
@@ -98,24 +101,28 @@ const login_user = async (req, res) => {
   }
 };
 
+/**
+ * Registro preliminar SIN guardar en DB hasta verificar SMS.
+ * Genera un JWT temporal (pending_verification_token) con:
+ *   { name, email, phone, hashed_password, verification_code }
+ * y lo devuelve al cliente. Envía el SMS con el código.
+ */
 const register_user = async (req, res) => {
   try {
-    // 1) Sanitizar inputs
+    // 1) Recuperar y normalizar campos (snake_case)
     let { name, email, phone, password, confirm_password } = req.body;
-    name = validator.trim(name);
-    email = validator.trim(email);
-    phone = validator.trim(phone);
-    password = validator.trim(password);
+    name             = validator.trim(name);
+    email            = validator.trim(email);
+    phone            = validator.trim(phone);
+    password         = validator.trim(password);
     confirm_password = validator.trim(confirm_password);
 
-    // 2) Validaciones
+    // 2) Validaciones básicas
     if (!name || name.length === 0 || name.length > 50) {
-      return res
-        .status(400)
-        .json({
-          error: true,
-          msg: "El nombre es obligatorio y debe tener máximo 50 caracteres",
-        });
+      return res.status(400).json({
+        error: true,
+        msg: "El nombre es obligatorio y debe tener máximo 50 caracteres",
+      });
     }
     if (!email || !phone || !password || !confirm_password) {
       return res
@@ -127,29 +134,18 @@ const register_user = async (req, res) => {
         .status(400)
         .json({ error: true, msg: "Su correo electrónico no es válido" });
     }
+    // Formato chileno: 9 dígitos (sin espacios ni signos)
     if (!/^\d{9}$/.test(phone)) {
       return res
         .status(400)
-        .json({
-          error: true,
-          msg: "El teléfono debe tener 9 dígitos numéricos",
-        });
+        .json({ error: true, msg: "Teléfono móvil ingresado no válido" });
     }
     if (password.length < 8 || password.length > 15) {
-      return res
-        .status(400)
-        .json({
-          error: true,
-          msg: "El largo de la contraseña debe estar entre 8 y 15 caracteres",
-        });
+      return res.status(400).json({
+        error: true,
+        msg: "El largo de la contraseña debe estar entre 8 y 15 caracteres",
+      });
     }
-    // validación “mayúscula + número”:
-    // if (!/(?=.*[A-Z])/.test(password) || !/(?=.*\d)/.test(password)) {
-    //   return res.status(400).json({
-    //     error: true,
-    //     msg: 'La contraseña debe incluir al menos una mayúscula y un número'
-    //   });
-    // }
     if (/\s/.test(password)) {
       return res
         .status(400)
@@ -161,38 +157,141 @@ const register_user = async (req, res) => {
         .json({ error: true, msg: "Las contraseñas no coinciden" });
     }
 
-    // 3) Unicidad en BD (email o teléfono)
-    const existing = await user.findOne({
+    // 3) Comprobar que no exista un usuario real con ese email o phone
+    const exists_in_users = await user.findOne({
       where: { [Op.or]: [{ email }, { phone }] },
     });
-    if (existing) {
+    if (exists_in_users) {
       return res
         .status(400)
         .json({ error: true, msg: "Email o teléfono ya registrado" });
     }
 
-    // 4) Hashear y crear
-    const hashed = await bcrypt.hash(password, 10);
-    const new_user = await user.create({
+    // 4) Hashear contraseña
+    const hashed_password = await bcrypt.hash(password, 10);
+
+    // 5) Generar código de verificación de 4 dígitos
+    const verification_code = Math.floor(1000 + Math.random() * 9000).toString();
+
+    // 6) Crear token JWT temporal con payload { name, email, phone, hashed_password, verification_code }
+    //    y expiración de 15 minutos
+    const payload = {
       name,
       email,
       phone,
-      password: hashed,
-    });
+      hashed_password,
+      verification_code,
+    };
+    const pending_verification_token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
 
-    // 5) Respuesta
-    return res.status(201).json({
+    // 7) Enviar el código por SMS
+    const sms_text = `Tu código de verificación es: ${verification_code}`;
+    const to_number = "+56" + phone; // Asumimos que "phone" viene sin prefijo "+56"
+    await send_sms(to_number, sms_text);
+
+    // 8) Devolver al cliente el pending_verification_token
+    return res.status(200).json({
       error: false,
-      msg: "Usuario registrado exitosamente",
+      msg: "Registro preliminar creado. Ingresa el código recibido en tu teléfono para confirmar tu cuenta.",
       data: {
-        user_id: new_user.user_id,
-        name: new_user.name,
-        email: new_user.email,
-        phone: new_user.phone,
+        pending_verification_token,
       },
     });
   } catch (err) {
     console.error("Error en register_user:", err);
+    return res.status(500).json({ error: true, msg: "Error en el servidor" });
+  }
+};
+
+/**
+ * Verificar código telefónico sin tabla intermedia.
+ * Recibe { pending_verification_token, code } en el body.
+ * Si coincide y no expiró, crea el usuario real en User (is_enable=true) y
+ * devuelve el token de sesión.
+ */
+const verify_phone = async (req, res) => {
+  try {
+    const { pending_verification_token, code } = req.body;
+
+    // 1) Validar que lleguen ambos parámetros
+    if (!pending_verification_token || !code) {
+      return res
+        .status(400)
+        .json({ error: true, msg: "pending_verification_token y código son obligatorios" });
+    }
+
+    // 2) Decodificar y verificar el JWT
+    let decoded;
+    try {
+      decoded = jwt.verify(pending_verification_token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res
+        .status(400)
+        .json({ error: true, msg: "Token inválido o expirado. Debes registrarte de nuevo." });
+    }
+
+    // 3) Comparar código
+    if (decoded.verification_code !== code) {
+      return res
+        .status(400)
+        .json({ error: true, msg: "Código inválido" });
+    }
+
+    // 4) Verificar nuevamente que no exista un usuario real con el mismo email o phone
+    const exists_in_users = await user.findOne({
+      where: { [Op.or]: [{ email: decoded.email }, { phone: decoded.phone }] },
+    });
+    if (exists_in_users) {
+      return res.status(400).json({
+        error: true,
+        msg: "Email o teléfono ya registrado.",
+      });
+    }
+
+    // 5) Crear el usuario real en la tabla User, con is_enable = true
+    const new_user = await user.create({
+      name: decoded.name,
+      email: decoded.email,
+      phone: decoded.phone,
+      password: decoded.hashed_password,
+      is_enable: true,
+      // role_id se asigna según tu lógica por defecto, por ejemplo
+      // role_id: 3  // o el id del rol “Cliente”
+    });
+
+    // 6) Generar JWT de sesión (por ejemplo, 4 horas)
+    const session_payload = {
+      user_id: new_user.user_id,
+      role_id: new_user.role_id,
+    };
+    const session_token = jwt.sign(
+      session_payload,
+      process.env.JWT_SECRET,
+      { expiresIn: "4h" }
+    );
+
+    // 7) (Opcional) Puedes enviar un SMS o email de confirmación final aquí
+
+    // 8) Responder con datos de usuario + token de sesión
+    return res.json({
+      error: false,
+      msg: "Usuario validado y cuenta activada correctamente",
+      data: {
+        user: {
+          user_id: new_user.user_id,
+          email: new_user.email,
+          phone: new_user.phone,
+          role: new_user.role ? new_user.role.name : null,
+        },
+        token: session_token,
+      },
+    });
+  } catch (err) {
+    console.error("Error en verify_phone:", err);
     return res.status(500).json({ error: true, msg: "Error en el servidor" });
   }
 };
@@ -323,6 +422,7 @@ const reset_password = async (req, res) => {
 module.exports = {
   login_user,
   register_user,
+  verify_phone,
   request_password_reset,
   reset_password,
 };
