@@ -39,6 +39,8 @@ const send_payment_receipt = async (receipt_data) => {
             walker_name = 'No asignado',
             walk_duration = 0,
             walk_date = new Date(),
+            walk_comments = '',
+            walk_type = '',
         } = receipt_data;
 
         // Validación de datos requeridos
@@ -80,6 +82,7 @@ ID de Pago: ${payment_id}
 ID de Paseo: ${walk_id}
 Estado: ${status}
 Fecha de Confirmación: ${formatted_payment_date}
+Tipo de Paseo: ${walk_type}
 
 ================================================
 DETALLES DEL PASEO
@@ -87,6 +90,7 @@ DETALLES DEL PASEO
 Cliente: ${client_name}
 Paseador: ${walker_name}
 Duración del Paseo: ${walk_duration} minutos
+${walk_comments ? `Comentarios: ${walk_comments}` : 'Sin comentarios'}
 Fecha del Paseo: ${formatted_walk_date}
 
 ================================================

@@ -211,6 +211,7 @@ const generate_payment_receipt = async (req, res) => {
       walk_duration: firstWalkDay?.duration || null,
       walk_date: firstWalkDay?.start_date || null,
       walk_time: firstWalkDay?.start_time || null,
+      walk_comments: payment_record.walk.comments || '',
       walk_type: walkTypeName,
       total_walk_days: walkDays.length
     };
