@@ -9,7 +9,7 @@ const { user, walker_profile } = require("../models/database");
 const ALLOWED_ZONES = ["norte", "centro", "sur"];
 const ALLOWED_WALKER_TYPES = ["esporádico", "fijo"];
 
-const { send_email } = require("../utils/email_service");
+const { send_email } = require("../utils/email/email_service");
 const { sendNotification } = require("../utils/send_notification");
 
 const create_walker_profile = async (req, res) => {

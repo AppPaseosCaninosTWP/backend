@@ -5,7 +5,7 @@ const validator = require("validator");
 const crypto = require("crypto");
 const { user } = require("../models/database");
 const { Op } = require("sequelize");
-const { send_email } = require("../utils/email_service");
+const { send_email } = require("../utils/email/email_service");
 const { send_sms } = require("../utils/send_sms_service"); 
 
 // ————————————————
