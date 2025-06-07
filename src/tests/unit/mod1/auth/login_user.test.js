@@ -134,4 +134,39 @@ describe("login_user", () => {
       error: true,
     });
   });
+
+    // 6. Login exitoso (200)
+  test("retorna 200 con token y datos si login es exitoso", async () => {
+    user.findOne.mockResolvedValue({
+      user_id: 1,
+      email: "test@example.com",
+      phone: "912345678",
+      role_id: 2,
+      password: "hashed_password",
+      is_enable: true,
+      role: { name: "Cliente" },
+    });
+
+    bcrypt.compare.mockResolvedValue(true);
+
+    const request = build_mock_request("test@example.com", "Password123");
+    const response = build_mock_response();
+
+    await login_user(request, response);
+
+    expect(jwt.sign).toHaveBeenCalled();
+    expect(response.json).toHaveBeenCalledWith({
+      msg: "Inicio de sesión exitoso",
+      data: {
+        user: {
+          user_id: 1,
+          email: "test@example.com",
+          phone: "912345678",
+          role: "Cliente",
+        },
+        token: "mocked_jwt_token",
+      },
+      error: false,
+    });
+  });
 });
