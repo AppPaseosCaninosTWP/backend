@@ -94,4 +94,21 @@ describe("login_user", () => {
       error: true,
     });
   });
+
+    // 4. Usuario deshabilitado (403)
+  test("retorna 403 si el usuario está deshabilitado", async () => {
+    user.findOne.mockResolvedValue({ is_enable: false });
+
+    const request = build_mock_request("test@example.com", "Password123");
+    const response = build_mock_response();
+
+    await login_user(request, response);
+
+    expect(response.status).toHaveBeenCalledWith(403);
+    expect(response.json).toHaveBeenCalledWith({
+      msg: "Usuario deshabilitado. Contacte soporte.",
+      data: null,
+      error: true,
+    });
+  });
 });
