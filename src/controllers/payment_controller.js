@@ -288,9 +288,12 @@ const assign_payment_to_walker = async (req, res) => {
         {
           model: walk,
           as: "walk",
+          attributes: ['walk_id', 'walk_type_id', 'comments', 'status', 'client_id', 'walker_id'],
           include: [
             { model: user, as: "client", attributes: ["user_id", "email", "name"] },
             { model: user, as: "walker", attributes: ["user_id", "email", "name"] },
+            { model: days_walk, as: "days", attributes: ['duration', 'start_date'], limit: 1 , order: [['start_date', 'ASC']] },
+            { model: walk_type, as: "walk_type", attributes: ['name'] }
           ],
         },
       ],
@@ -340,8 +343,10 @@ const assign_payment_to_walker = async (req, res) => {
         total_amount: total_amount,
         assignment_date: new Date(),
         client_name: payment_record.walk.client.name,
-        walk_date: payment_record.walk.scheduled_date,
-        walk_duration: payment_record.walk.duration,
+        walk_date: payment_record.walk.days[0]?.start_date || payment_record.walk.scheduled_date || new Date(),
+        walk_duration: payment_record.walk.days[0]?.duration || 0,
+        walk_comments: payment_record.walk.comments || '',
+        walk_type: payment_record.walk.walk_type.name || 'No especificado'
       };
 
       await send_payment_notification_to_walker(walker_notification_data);

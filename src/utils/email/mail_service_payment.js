@@ -89,7 +89,7 @@ DETALLES DEL PASEO
 ================================================
 Cliente: ${client_name}
 Paseador: ${walker_name}
-Duración del Paseo: ${walk_duration} minutos
+Duración del Paseo (por dia): ${walk_duration} minutos
 ${walk_comments ? `Comentarios: ${walk_comments}` : 'Sin comentarios'}
 Fecha del Paseo: ${formatted_walk_date}
 
@@ -138,6 +138,8 @@ const send_payment_notification_to_walker = async (walker_data) => {
             client_name = 'Cliente',
             walk_date = new Date(),
             walk_duration = 0,
+            walk_comments = '', // Nuevo campo para comentarios
+            walk_type = '' // Nuevo campo para tipo de paseo
         } = walker_data;
 
         // Validación de datos requeridos
@@ -145,6 +147,7 @@ const send_payment_notification_to_walker = async (walker_data) => {
             throw new Error('Datos incompletos para notificación al paseador');
         }
 
+        // Formateo de fechas y montos
         const formatted_assignment_date = new Date(assignment_date).toLocaleDateString("es-CL", {
             year: 'numeric',
             month: 'long',
@@ -192,8 +195,10 @@ INFORMACIÓN DEL SERVICIO
 ID de Paseo: ${walk_id}
 ID de Pago: ${payment_id}
 Cliente: ${client_name}
+Tipo de Paseo: ${walk_type}
 Fecha del Paseo: ${formatted_walk_date}
-Duración: ${walk_duration} minutos
+Duración (por dia): ${walk_duration} minutos
+${walk_comments ? `Comentarios: ${walk_comments}\n` : ''}
 Fecha de Asignación: ${formatted_assignment_date}
 
 ================================================
