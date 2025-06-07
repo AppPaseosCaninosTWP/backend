@@ -4,6 +4,7 @@ const {
   get_payment_by_id,
   update_payment_status,
   generate_payment_receipt,
+  confirm_payment,
   assign_payment_to_walker,
 } = require("../../controllers/payment_controller");
 
@@ -20,6 +21,8 @@ router.get("/:id", allow_roles(1, 2, 3), get_payment_by_id);
 router.get("/", allow_roles(1, 2, 3), get_all_payments);
 
 router.post("/:id/receipt", allow_roles(1, 2, 3), generate_payment_receipt);
+
+router.post("/:id/confirm", allow_roles(1, 2), confirm_payment);
 
 router.post("/:id/assign", allow_roles(1, 2), assign_payment_to_walker);
 

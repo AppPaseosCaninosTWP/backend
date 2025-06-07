@@ -272,6 +272,71 @@ const isValidEmail = (email) => {
   return emailRegex.test(email);
 };
 
+// En tu payment_controller.js
+const confirm_payment = async (req, res) => {
+  const { id } = req.params;
+  const { user_id, role_id } = req.user;
+
+  if (!id || isNaN(Number(id))) {
+    return res.status(400).json({ msg: "ID de pago inválido", error: true });
+  }
+
+  try {
+    const payment_record = await payment.findByPk(id, {
+      include: [
+        {
+          model: walk,
+          as: "walk",
+          include: [
+            { model: user, as: "client", attributes: ["user_id", "email", "name"] }
+          ]
+        }
+      ]
+    });
+
+    if (!payment_record) {
+      return res.status(404).json({ msg: "Pago no encontrado", error: true });
+    }
+
+    // Solo administradores o el cliente dueño del pago pueden confirmar
+    const is_owner = payment_record.walk.client_id === user_id;
+    if (role_id !== 1 && !is_owner) {
+      return res.status(403).json({ 
+        msg: "No tienes permiso para confirmar este pago", 
+        error: true 
+      });
+    }
+
+    if (payment_record.status === "confirmado") {
+      return res.status(400).json({ 
+        msg: "El pago ya está confirmado", 
+        error: true 
+      });
+    }
+
+    await payment_record.update({
+      status: "confirmado",
+      date: new Date() // Fecha de confirmación
+    });
+
+    return res.json({
+      msg: "Pago confirmado exitosamente",
+      error: false,
+      data: {
+        payment_id: payment_record.payment_id,
+        status: "confirmado",
+        confirmed_at: new Date()
+      }
+    });
+
+  } catch (err) {
+    console.error("Error en confirm_payment:", err);
+    return res.status(500).json({ 
+      msg: "Error al confirmar el pago", 
+      error: true 
+    });
+  }
+};
 
 const assign_payment_to_walker = async (req, res) => {
   const { id } = req.params;
@@ -398,5 +463,6 @@ module.exports = {
   get_all_payments,
   get_payment_by_id,
   generate_payment_receipt,
+  confirm_payment,
   assign_payment_to_walker,
 };
