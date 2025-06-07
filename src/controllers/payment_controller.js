@@ -272,7 +272,7 @@ const isValidEmail = (email) => {
   return emailRegex.test(email);
 };
 
-// En tu payment_controller.js
+// Para probar el assign_payment_to_walker, puedes usar un endpoint de prueba
 const confirm_payment = async (req, res) => {
   const { id } = req.params;
   const { user_id, role_id } = req.user;
@@ -298,7 +298,7 @@ const confirm_payment = async (req, res) => {
       return res.status(404).json({ msg: "Pago no encontrado", error: true });
     }
 
-    // Solo administradores o el cliente dueño del pago pueden confirmar
+
     const is_owner = payment_record.walk.client_id === user_id;
     if (role_id !== 1 && !is_owner) {
       return res.status(403).json({ 
@@ -307,15 +307,15 @@ const confirm_payment = async (req, res) => {
       });
     }
 
-    if (payment_record.status === "confirmado") {
+    if (payment_record.status === "pagado") {
       return res.status(400).json({ 
-        msg: "El pago ya está confirmado", 
+        msg: "El pago ya está pagado", 
         error: true 
       });
     }
 
     await payment_record.update({
-      status: "confirmado",
+      status: "pagado",
       date: new Date() // Fecha de confirmación
     });
 
@@ -368,7 +368,7 @@ const assign_payment_to_walker = async (req, res) => {
       return res.status(403).json({ msg: "Solo los administradores pueden asignar pagos", error: true });
     }
 
-    if (payment_record.status !== "confirmado") {
+    if (payment_record.status !== "pagado") {
       return res.status(400).json({ msg: "Solo se pueden asignar pagos confirmados", error: true });
     }
 
