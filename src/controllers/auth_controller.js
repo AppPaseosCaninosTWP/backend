@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const { user } = require("../models/database");
 const { Op } = require("sequelize");
 const { send_email } = require("../utils/email/email_service");
-const { send_sms } = require("../utils/send_sms_service"); 
+const { send_sms } = require("../utils/send_sms_service");
 
 // ————————————————
 // Inicio de sesión
@@ -112,10 +112,10 @@ const register_user = async (req, res) => {
   try {
     // 1) Recuperar y normalizar campos (snake_case)
     let { name, email, phone, password, confirm_password } = req.body;
-    name             = validator.trim(name);
-    email            = validator.trim(email);
-    phone            = validator.trim(phone);
-    password         = validator.trim(password);
+    name = validator.trim(name);
+    email = validator.trim(email);
+    phone = validator.trim(phone);
+    password = validator.trim(password);
     confirm_password = validator.trim(confirm_password);
 
     // 2) Validaciones básicas
@@ -200,7 +200,10 @@ const register_user = async (req, res) => {
       msg: "Registro preliminar creado. Ingresa el código recibido en tu teléfono para confirmar tu cuenta.",
       data: {
         pending_verification_token,
-      },
+        email,
+        phone,
+        user_id: null
+      }
     });
   } catch (err) {
     console.error("Error en register_user:", err);
