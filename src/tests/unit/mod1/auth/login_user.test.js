@@ -1,5 +1,5 @@
 /**
- * @file auth_controller.test.js
+ * @file auth.controller.js
  * @module mod1 - Gestión de Usuarios
  * @description Pruebas unitarias para la función `login_user`
  *
@@ -58,6 +58,22 @@ describe("login_user", () => {
     expect(response.status).toHaveBeenCalledWith(400);
     expect(response.json).toHaveBeenCalledWith({
       msg: "Email y contraseña son obligatorios",
+      data: null,
+      error: true,
+    });
+  });
+
+  
+  // 2. Formato de email inválido (400)
+  test("retorna 400 si el email tiene formato inválido", async () => {
+    const request = build_mock_request("correo@invalido", "Password123");
+    const response = build_mock_response();
+
+    await login_user(request, response);
+
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(response.json).toHaveBeenCalledWith({
+      msg: "Correo electrónico inválido",
       data: null,
       error: true,
     });
