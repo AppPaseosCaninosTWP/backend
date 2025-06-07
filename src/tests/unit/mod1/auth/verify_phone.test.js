@@ -1,5 +1,5 @@
 /**
- * @file verify_phone.test.js
+ * @file auth.controller.js
  * @module mod1 - Gestión de Usuarios
  * @description Pruebas unitarias para la función `verify_phone`
  *
