@@ -14,3 +14,52 @@
  *
  * Basado en: ERS v2.7 – Requerimiento CRED-002
  */
+
+const { login_user } = require("../../../../controllers/auth_controller");
+const { user } = require("../../../../models/database");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+
+jest.mock("../../../../models/database", () => ({
+  user: { findOne: jest.fn() },
+}));
+
+jest.mock("bcryptjs", () => ({
+  compare: jest.fn(),
+}));
+
+jest.mock("jsonwebtoken", () => ({
+  sign: jest.fn().mockReturnValue("mocked_jwt_token"),
+}));
+
+describe("login_user", () => {
+  const build_mock_response = () => {
+    const response = {};
+    response.status = jest.fn().mockReturnValue(response);
+    response.json = jest.fn().mockReturnValue(response);
+    return response;
+  };
+
+  const build_mock_request = (email, password) => ({
+    body: { email, password },
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // 1. Email o password no enviados (400)
+  test("retorna 400 si email o password están ausentes", async () => {
+    const request = build_mock_request("", "");
+    const response = build_mock_response();
+
+    await login_user(request, response);
+    
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(response.json).toHaveBeenCalledWith({
+      msg: "Email y contraseña son obligatorios",
+      data: null,
+      error: true,
+    });
+  });
+});
