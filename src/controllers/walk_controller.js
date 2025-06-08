@@ -614,7 +614,7 @@ const get_walk_assigned = async (req, res) => {
 const update_walk_status = async (req, res) => {
   const { id } = req.params;
   const { new_status, walker_rating, client_rating } = req.body;
-  const { user_id, role_id } = req.user;
+  const { user_id } = req.user;
 
   const valid_statuses = ["confirmado", "cancelado", "en_curso", "finalizado"];
   if (!valid_statuses.includes(new_status)) {
@@ -629,7 +629,9 @@ const update_walk_status = async (req, res) => {
 
     if (new_status === "confirmado") {
       if (walk_record.status !== "pendiente") {
-        return res.status(400).json({ msg: "Solo paseos pendientes pueden confirmarse", error: true });
+        return res
+          .status(400)
+          .json({ msg: "Solo paseos pendientes pueden confirmarse", error: true });
       }
       await walk_record.update({ status: "confirmado", walker_id: user_id });
 
@@ -643,54 +645,80 @@ const update_walk_status = async (req, res) => {
       const diff_minutes = walk_datetime.diff(now, "minute");
 
       if (diff_minutes < 30) {
-        return res.status(400).json({ msg: "No se puede cancelar con menos de 30 minutos de anticipación", error: true });
+        return res
+          .status(400)
+          .json({
+            msg: "No se puede cancelar con menos de 30 minutos de anticipación",
+            error: true,
+          });
       }
       await walk_record.update({ status: "pendiente", walker_id: null });
 
     } else if (new_status === "en_curso") {
       await walk_record.update({ status: "en_curso" });
-      // logica tras mod 3
+
     } else if (new_status === "finalizado") {
-      // 1) Marco como finalizado
+      // 1) VALIDACIONES de rating/comentario: si viene uno, debe venir el otro
+      if (walker_rating) {
+        if (
+          walker_rating.value == null ||
+          !walker_rating.comment ||
+          walker_rating.comment.trim() === ""
+        ) {
+          return res
+            .status(400)
+            .json({ msg: "Comentario obligatorio para rating", error: true });
+        }
+      }
+      if (client_rating) {
+        if (
+          client_rating.value == null ||
+          !client_rating.comment ||
+          client_rating.comment.trim() === ""
+        ) {
+          return res
+            .status(400)
+            .json({ msg: "Comentario obligatorio para rating", error: true });
+        }
+      }
+
+      // 2) Marco como finalizado **solo si pasaron validaciones**
       await walk_record.update({ status: "finalizado" });
 
-      // 2) Creo calificaciones solo si vienen del front
+      // 3) Creo calificaciones
       const tasks = [];
-
-      // Paseador califica a cliente
-      if (walker_rating && walker_rating.value != null) {
+      if (walker_rating) {
         tasks.push(
           rating.create({
-            value:      walker_rating.value,
-            comment:    walker_rating.comment,
-            sender_id:   user_id,                  // id del paseador
-            receiver_id: walk_record.client_id,    // id del cliente
+            value:       walker_rating.value,
+            comment:     walker_rating.comment,
+            sender_id:   user_id,
+            receiver_id: walk_record.client_id,
             walk_id:     walk_record.walk_id,
           })
         );
       }
-
-      // Cliente califica a paseador
-      if (client_rating && client_rating.value != null) {
+      if (client_rating) {
         tasks.push(
           rating.create({
-            value:      client_rating.value,
-            comment:    client_rating.comment,
-            sender_id:   walk_record.client_id,    // id del cliente
-            receiver_id: user_id,                  // id del paseador
+            value:       client_rating.value,
+            comment:     client_rating.comment,
+            sender_id:   walk_record.client_id,
+            receiver_id: user_id,
             walk_id:     walk_record.walk_id,
           })
         );
       }
-
       await Promise.all(tasks);
-      // logica del pago y asignacion de balances, etc.
     }
 
     return res.json({ msg: `Paseo ${new_status}`, error: false });
+
   } catch (err) {
     console.error("Error en update_walk_status:", err);
-    return res.status(500).json({ msg: "Error al actualizar el estado del paseo", error: true });
+    return res
+      .status(500)
+      .json({ msg: "Error al actualizar el estado del paseo", error: true });
   }
 };
 
