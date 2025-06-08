@@ -8,6 +8,8 @@
  * 2. Fallo al proporcionar un rating sin comentario obligatorio (400)
  * 3. Éxito al enviar ratings y comentarios válidos (200)
  * 4. Error interno del servidor (500)
+ * 
+ * Basado en: ERS v2.7 - Requerimiento CALF-001
  */
 
 const { update_walk_status } = require("../../../controllers/walk_controller");
