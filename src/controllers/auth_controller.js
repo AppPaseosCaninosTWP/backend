@@ -172,7 +172,9 @@ const register_user = async (req, res) => {
     const hashed_password = await bcrypt.hash(password, 10);
 
     // 5) Generar código de verificación de 4 dígitos
-    const verification_code = Math.floor(1000 + Math.random() * 9000).toString();
+    const verification_code = Math.floor(
+      1000 + Math.random() * 9000
+    ).toString();
 
     // 6) Crear token JWT temporal con payload { name, email, phone, hashed_password, verification_code }
     //    y expiración de 15 minutos
@@ -212,7 +214,6 @@ const register_user = async (req, res) => {
 };
 
 /**
- * Verificar código telefónico sin tabla intermedia.
  * Recibe { pending_verification_token, code } en el body.
  * Si coincide y no expiró, crea el usuario real en User (is_enable=true) y
  * devuelve el token de sesión.
@@ -225,7 +226,10 @@ const verify_phone = async (req, res) => {
     if (!pending_verification_token || !code) {
       return res
         .status(400)
-        .json({ error: true, msg: "pending_verification_token y código son obligatorios" });
+        .json({
+          error: true,
+          msg: "pending_verification_token y código son obligatorios",
+        });
     }
 
     // 2) Decodificar y verificar el JWT
@@ -235,14 +239,15 @@ const verify_phone = async (req, res) => {
     } catch (err) {
       return res
         .status(400)
-        .json({ error: true, msg: "Token inválido o expirado. Debes registrarte de nuevo." });
+        .json({
+          error: true,
+          msg: "Token inválido o expirado. Debes registrarte de nuevo.",
+        });
     }
 
     // 3) Comparar código
     if (decoded.verification_code !== code) {
-      return res
-        .status(400)
-        .json({ error: true, msg: "Código inválido" });
+      return res.status(400).json({ error: true, msg: "Código inválido" });
     }
 
     // 4) Verificar nuevamente que no exista un usuario real con el mismo email o phone
@@ -263,8 +268,7 @@ const verify_phone = async (req, res) => {
       phone: decoded.phone,
       password: decoded.hashed_password,
       is_enable: true,
-      // role_id se asigna según tu lógica por defecto, por ejemplo
-      // role_id: 3  // o el id del rol “Cliente”
+      role_id: 3,
     });
 
     // 6) Generar JWT de sesión (por ejemplo, 4 horas)
@@ -272,13 +276,9 @@ const verify_phone = async (req, res) => {
       user_id: new_user.user_id,
       role_id: new_user.role_id,
     };
-    const session_token = jwt.sign(
-      session_payload,
-      process.env.JWT_SECRET,
-      { expiresIn: "4h" }
-    );
-
-    // 7) (Opcional) Puedes enviar un SMS o email de confirmación final aquí
+    const session_token = jwt.sign(session_payload, process.env.JWT_SECRET, {
+      expiresIn: "4h",
+    });
 
     // 8) Responder con datos de usuario + token de sesión
     return res.json({
