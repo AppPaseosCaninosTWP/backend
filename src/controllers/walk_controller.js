@@ -435,6 +435,9 @@ const get_all_walks = async (req, res) => {
       status: walk_record.status,
       client_email: walk_record.client?.email,
       walker_email: walk_record.walker?.email ?? null,
+      payment_status: walk_record.payment_status,
+      walker_id: walk_record.walker_id,   
+      is_rated: walk_record.is_rated,             
       days:
         walk_record.days?.map((day) => ({
           start_date: day.start_date,
@@ -661,11 +664,11 @@ const update_walk_status = async (req, res) => {
       if (walker_rating && walker_rating.value != null) {
         tasks.push(
           rating.create({
-            value:      walker_rating.value,
-            comment:    walker_rating.comment,
-            sender_id:   user_id,                  // id del paseador
+            value: walker_rating.value,
+            comment: walker_rating.comment,
+            sender_id: user_id,                  // id del paseador
             receiver_id: walk_record.client_id,    // id del cliente
-            walk_id:     walk_record.walk_id,
+            walk_id: walk_record.walk_id,
           })
         );
       }
@@ -674,11 +677,11 @@ const update_walk_status = async (req, res) => {
       if (client_rating && client_rating.value != null) {
         tasks.push(
           rating.create({
-            value:      client_rating.value,
-            comment:    client_rating.comment,
-            sender_id:   walk_record.client_id,    // id del cliente
+            value: client_rating.value,
+            comment: client_rating.comment,
+            sender_id: walk_record.client_id,    // id del cliente
             receiver_id: user_id,                  // id del paseador
-            walk_id:     walk_record.walk_id,
+            walk_id: walk_record.walk_id,
           })
         );
       }

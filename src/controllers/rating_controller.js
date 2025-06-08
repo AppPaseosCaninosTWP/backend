@@ -122,8 +122,39 @@ const get_user_ratings = async (req, res) => {
   }
 };
 
+const create_rating = async (req, res) => {
+  try {
+    const { walk_id, receiver_id, value, comment } = req.body;
+    const sender_id = req.user.user_id;
+
+    if (!walk_id || !receiver_id || !value || !comment?.trim()) {
+      return res.status(400).json({ msg: 'Datos incompletos para calificar', error: true });
+    }
+
+    const new_rating = await Rating.create({
+      walk_id,
+      sender_id,
+      receiver_id,
+      value,
+      comment,
+    });
+
+    return res.status(201).json({
+      msg: 'Calificación registrada correctamente',
+      rating: new_rating,
+    });
+  } catch (err) {
+    console.error('Error en create_rating:', err);
+    return res.status(500).json({
+      msg: 'Error al registrar la calificación',
+      error: true,
+    });
+  }
+};
+
 module.exports = {
   get_walk_ratings,
   list_ratings,
   get_user_ratings,
+  create_rating,
 };
