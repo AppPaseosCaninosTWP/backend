@@ -111,6 +111,10 @@ describe("get_users", () => {
   });
 
   test("3. Error interno del servidor (500)", async () => {
+     // Opcionalmente, silenciar console.error:
+    const origErr = console.error;
+    console.error = jest.fn();
+    
     user.findAndCountAll.mockRejectedValue(new Error("DB crash"));
 
     const req = buildReq({});
@@ -123,5 +127,8 @@ describe("get_users", () => {
       msg: "Error en el servidor",
       error: true,
     });
+
+    // Restaurar si lo silenciaste:
+    console.error = origErr;
   });
 });
