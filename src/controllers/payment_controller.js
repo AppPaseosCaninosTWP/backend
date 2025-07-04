@@ -39,6 +39,13 @@ const update_payment_status = async (req, res) => {
 
     await payment_record.update({ status: new_status });
 
+    // Si el status es pagado, actualiza el balance del walker y aplica las comisiones
+    if (new_status === "pagado") {
+      req.params = { id };
+      req.internal_call = true;
+      return await assign_payment_to_walker(req, res);
+    }
+
     return res.json({ msg: "Estado del pago actualizado", error: false });
   } catch (err) {
     console.error("Error en update_payment_status:", err);
@@ -322,7 +329,8 @@ const assign_payment_to_walker = async (req, res) => {
       return res.status(404).json({ msg: "Pago no encontrado", error: true });
     }
 
-    if (role_id !== 1) {
+    // Permitir que se llame internamente, no solo por admins
+    if (!req.internal_call && role_id !== 1) {
       return res.status(403).json({ msg: "Solo los administradores pueden asignar pagos", error: true });
     }
 
