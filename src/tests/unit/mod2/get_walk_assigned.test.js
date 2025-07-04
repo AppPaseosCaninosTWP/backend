@@ -13,13 +13,13 @@
  *
  */
 
-const { get_walk_assigned } = require("../../controllers/walk_controller");
-const { walk, pet, days_walk } = require("../../models/database");
+const { get_walk_assigned } = require("../../../controllers/walk_controller");
+const { walk, pet, days_walk } = require("../../../models/database");
 const { Op } = require("sequelize");
 const dayjs = require("dayjs");
 
 // Mock de todas las dependencias
-jest.mock("../../models/database", () => ({
+jest.mock("../../../models/database", () => ({
   walk: {
     findAll: jest.fn(),
   },
