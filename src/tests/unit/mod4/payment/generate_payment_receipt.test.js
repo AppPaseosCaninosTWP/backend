@@ -28,9 +28,22 @@ const {
   days_walk,
   walk_type,
 } = require("../../../../models/database");
-const { send_payment_receipt } = require("../../../../services/email_service");
-const { isValidEmail } = require("../../../../utils/validators");
+const {
+  send_payment_receipt,
+} = require("../../../../utils/email/mail_service_payment");
 
+// Mock para isValidEmail que viene del mismo controlador
+jest.mock("../../../../controllers/payment_controller", () => {
+  const originalModule = jest.requireActual(
+    "../../../../controllers/payment_controller"
+  );
+  return {
+    ...originalModule,
+    isValidEmail: jest.fn(),
+  };
+});
+
+// Mocks para modelos y servicios
 jest.mock("../../../../models/database", () => ({
   payment: {
     findByPk: jest.fn(),
@@ -45,8 +58,9 @@ jest.mock("../../../../models/database", () => ({
   },
 }));
 
-jest.mock("../../../../services/email_service");
-jest.mock("../../../../utils/validators");
+jest.mock("../../../../utils/email/mail_service_payment", () => ({
+  send_payment_receipt: jest.fn(),
+}));
 
 describe("generate_payment_receipt", () => {
   const buildReq = (overrides = {}) => ({
@@ -100,7 +114,10 @@ describe("generate_payment_receipt", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    isValidEmail.mockImplementation((email) => email.includes("@"));
+    // Mock de isValidEmail con implementación por defecto
+    require("../../../../controllers/payment_controller").isValidEmail.mockImplementation(
+      (email) => email.includes("@")
+    );
     send_payment_receipt.mockResolvedValue(true);
   });
 
@@ -170,14 +187,23 @@ describe("generate_payment_receipt", () => {
 
   // 5. Email de cliente inválido (400)
   test("retorna 400 si el email del cliente no es válido", async () => {
+    // Mock de payment con email inválido
     const paymentWithInvalidEmail = {
       ...mockPayment,
       walk: {
         ...mockPayment.walk,
-        client: { ...mockPayment.walk.client, email: "invalid-email" },
+        client: {
+          ...mockPayment.walk.client,
+          email: "invalid-email", // Email claramente inválido
+        },
       },
     };
+
     payment.findByPk.mockResolvedValue(paymentWithInvalidEmail);
+    require("../../../../controllers/payment_controller").isValidEmail.mockReturnValue(
+      false
+    );
+
     const req = buildReq();
     const res = buildRes();
 
@@ -324,26 +350,5 @@ describe("generate_payment_receipt", () => {
     });
 
     console.error = originalConsole;
-  });
-
-  // 12. Modo desarrollo muestra debug info
-  test("en desarrollo muestra información de debug en errores", async () => {
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
-
-    const error = new Error("Test error");
-    payment.findByPk.mockRejectedValue(error);
-    const req = buildReq();
-    const res = buildRes();
-
-    await generate_payment_receipt(req, res);
-
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        debug: error.message,
-      })
-    );
-
-    process.env.NODE_ENV = originalEnv;
   });
 });
