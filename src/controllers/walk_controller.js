@@ -7,14 +7,17 @@ const {
   days_walk,
   walker_profile,
   payment,
-  rating
+  rating,
 } = require("../models/database");
 
 const { Op } = require("sequelize");
 const { sendNotification } = require("../utils/send_notification");
 const dayjs = require("dayjs");
 const { generate_days_for_week } = require("../utils/date_service");
-const { calculate_payment_amount, defined_prices } = require("../utils/payment_service")
+const {
+  calculate_payment_amount,
+  defined_prices,
+} = require("../utils/payment_service");
 
 const create_walk = async (req, res) => {
   const {
@@ -67,9 +70,7 @@ const create_walk = async (req, res) => {
           .json({ msg: "Formato de hora inválido", error: true });
       }
       if (![30, 60].includes(parseInt(duration))) {
-        return res
-          .status(400)
-          .json({ msg: "Duración inválida", error: true });
+        return res.status(400).json({ msg: "Duración inválida", error: true });
       }
 
       // d) Validar mascotas del cliente
@@ -285,13 +286,19 @@ const create_walk = async (req, res) => {
 
       await Promise.all(
         days_to_insert.map((day) =>
-          days_walk.create({ walk_id: new_walk.walk_id, ...day }, { transaction })
+          days_walk.create(
+            { walk_id: new_walk.walk_id, ...day },
+            { transaction }
+          )
         )
       );
 
       await Promise.all(
         pet_ids.map((pet_id) =>
-          pet_walk.create({ walk_id: new_walk.walk_id, pet_id }, { transaction })
+          pet_walk.create(
+            { walk_id: new_walk.walk_id, pet_id },
+            { transaction }
+          )
         )
       );
 
@@ -358,7 +365,6 @@ const get_all_walks = async (req, res) => {
         ],
         order: [["walk_id", "DESC"]],
       });
-
     } else if (role_id === 2) {
       // Paseador: filtrar por zona de su perfil + sus paseos asignados
       const walkerProfile = await walker_profile.findOne({
@@ -407,7 +413,6 @@ const get_all_walks = async (req, res) => {
             w.pets.some((pet) => pet.zone === walkerZone))
         );
       });
-
     } else {
       allWalks = await walk.findAll({
         include: [
@@ -435,6 +440,9 @@ const get_all_walks = async (req, res) => {
       status: walk_record.status,
       client_email: walk_record.client?.email,
       walker_email: walk_record.walker?.email ?? null,
+      payment_status: walk_record.payment_status,
+      walker_id: walk_record.walker_id,
+      is_rated: walk_record.is_rated,
       days:
         walk_record.days?.map((day) => ({
           start_date: day.start_date,
@@ -474,10 +482,15 @@ const get_walk_by_id = async (req, res) => {
 
   try {
     const basic_walk = await walk.findByPk(id, {
-      attributes: ["walk_id", "client_id", "walker_id", "status", "walk_type_id", "comments"],
-      include: [
-        { model: walk_type, as: "walk_type", attributes: ["name"] },
+      attributes: [
+        "walk_id",
+        "client_id",
+        "walker_id",
+        "status",
+        "walk_type_id",
+        "comments",
       ],
+      include: [{ model: walk_type, as: "walk_type", attributes: ["name"] }],
     });
 
     if (!basic_walk) {
@@ -487,25 +500,50 @@ const get_walk_by_id = async (req, res) => {
     const can_access =
       role_id === 1 ||
       (role_id === 3 && basic_walk.client_id === user_id) ||
-      (role_id === 2 && (basic_walk.walker_id === user_id || (!basic_walk.walker_id && basic_walk.status === "pendiente")));
+      (role_id === 2 &&
+        (basic_walk.walker_id === user_id ||
+          (!basic_walk.walker_id && basic_walk.status === "pendiente")));
 
     if (!can_access) {
-      return res.status(403).json({ msg: "No tienes permiso para ver este paseo", error: true });
+      return res
+        .status(403)
+        .json({ msg: "No tienes permiso para ver este paseo", error: true });
     }
 
     const full_walk = await walk.findByPk(id, {
       include: [
-        { model: user, as: "client", attributes: ["user_id", "email", "phone"] },
-        { model: user, as: "walker", attributes: ["user_id", "email", "phone"], required: false },
-        { model: walk_type, as: "walk_type", attributes: ["walk_type_id", "name"] },
-        { model: days_walk, as: "days", attributes: ["start_date", "start_time", "duration"] },
+        {
+          model: user,
+          as: "client",
+          attributes: ["user_id", "email", "phone"],
+        },
+        {
+          model: user,
+          as: "walker",
+          attributes: ["user_id", "email", "phone"],
+          required: false,
+        },
+        {
+          model: walk_type,
+          as: "walk_type",
+          attributes: ["walk_type_id", "name"],
+        },
+        {
+          model: days_walk,
+          as: "days",
+          attributes: ["start_date", "start_time", "duration"],
+        },
       ],
     });
 
     const pet_walks = await pet_walk.findAll({
       where: { walk_id: id },
       include: [
-        { model: pet, as: "pet", attributes: ["pet_id", "name", "photo", "zone"] },
+        {
+          model: pet,
+          as: "pet",
+          attributes: ["pet_id", "name", "photo", "zone"],
+        },
       ],
     });
 
@@ -524,10 +562,16 @@ const get_walk_by_id = async (req, res) => {
       })),
     };
 
-    return res.json({ msg: "Paseo obtenido exitosamente", data: response_data, error: false });
+    return res.json({
+      msg: "Paseo obtenido exitosamente",
+      data: response_data,
+      error: false,
+    });
   } catch (err) {
     console.error("Error en get_walk_by_id:", err);
-    return res.status(500).json({ msg: "Error al obtener el paseo", error: true });
+    return res
+      .status(500)
+      .json({ msg: "Error al obtener el paseo", error: true });
   }
 };
 
@@ -537,9 +581,19 @@ const get_walk_history = async (req, res) => {
     const walks = await walk.findAll({
       where: { status: "finalizado", walker_id },
       include: [
-        { model: pet, as: "pets", through: { attributes: [] }, attributes: ["pet_id", "name", "photo", "zone"] },
+        {
+          model: pet,
+          as: "pets",
+          through: { attributes: [] },
+          attributes: ["pet_id", "name", "photo", "zone"],
+        },
         { model: walk_type, as: "walk_type", attributes: ["name"] },
-        { model: days_walk, as: "days", attributes: ["start_date", "start_time", "duration"], where: { start_date: { [Op.lte]: dayjs().format("YYYY-MM-DD") } } },
+        {
+          model: days_walk,
+          as: "days",
+          attributes: ["start_date", "start_time", "duration"],
+          where: { start_date: { [Op.lte]: dayjs().format("YYYY-MM-DD") } },
+        },
       ],
       order: [["walk_id", "DESC"]],
     });
@@ -555,8 +609,11 @@ const get_walk_history = async (req, res) => {
         duration: day.duration,
         zone: pet_data.zone,
         label: walk_record.walk_type.name,
+        pet_id: pet_data.pet_id,
         pet_name: pet_data.name,
         pet_photo: pet_data.photo ? `${base_url}/${pet_data.photo}` : null,
+        walker_id: walk_record.walker_id,
+        is_rated: walk_record.is_rated,
       };
     });
 
@@ -614,7 +671,7 @@ const get_walk_assigned = async (req, res) => {
 const update_walk_status = async (req, res) => {
   const { id } = req.params;
   const { new_status, walker_rating, client_rating } = req.body;
-  const { user_id, role_id } = req.user;
+  const { user_id } = req.user;
 
   const valid_statuses = ["confirmado", "cancelado", "en_curso", "finalizado"];
   if (!valid_statuses.includes(new_status)) {
@@ -629,68 +686,93 @@ const update_walk_status = async (req, res) => {
 
     if (new_status === "confirmado") {
       if (walk_record.status !== "pendiente") {
-        return res.status(400).json({ msg: "Solo paseos pendientes pueden confirmarse", error: true });
+        return res.status(400).json({
+          msg: "Solo paseos pendientes pueden confirmarse",
+          error: true,
+        });
       }
       await walk_record.update({ status: "confirmado", walker_id: user_id });
-
     } else if (new_status === "cancelado") {
       const walk_day = await days_walk.findOne({
         where: { walk_id: id },
         order: [["start_date", "ASC"]],
       });
       const now = dayjs();
-      const walk_datetime = dayjs(`${walk_day.start_date} ${walk_day.start_time}`);
+      const walk_datetime = dayjs(
+        `${walk_day.start_date} ${walk_day.start_time}`
+      );
       const diff_minutes = walk_datetime.diff(now, "minute");
 
       if (diff_minutes < 30) {
-        return res.status(400).json({ msg: "No se puede cancelar con menos de 30 minutos de anticipación", error: true });
+        return res.status(400).json({
+          msg: "No se puede cancelar con menos de 30 minutos de anticipación",
+          error: true,
+        });
       }
       await walk_record.update({ status: "pendiente", walker_id: null });
-
     } else if (new_status === "en_curso") {
       await walk_record.update({ status: "en_curso" });
-      // logica tras mod 3
     } else if (new_status === "finalizado") {
-      // 1) Marco como finalizado
+      // 1) VALIDACIONES de rating/comentario: si viene uno, debe venir el otro
+      if (walker_rating) {
+        if (
+          walker_rating.value == null ||
+          !walker_rating.comment ||
+          walker_rating.comment.trim() === ""
+        ) {
+          return res
+            .status(400)
+            .json({ msg: "Comentario obligatorio para rating", error: true });
+        }
+      }
+      if (client_rating) {
+        if (
+          client_rating.value == null ||
+          !client_rating.comment ||
+          client_rating.comment.trim() === ""
+        ) {
+          return res
+            .status(400)
+            .json({ msg: "Comentario obligatorio para rating", error: true });
+        }
+      }
+
+      // 2) Marco como finalizado **solo si pasaron validaciones**
       await walk_record.update({ status: "finalizado" });
 
-      // 2) Creo calificaciones solo si vienen del front
+      // 3) Creo calificaciones
       const tasks = [];
-
-      // Paseador califica a cliente
-      if (walker_rating && walker_rating.value != null) {
+      if (walker_rating) {
         tasks.push(
           rating.create({
-            value:      walker_rating.value,
-            comment:    walker_rating.comment,
-            sender_id:   user_id,                  // id del paseador
-            receiver_id: walk_record.client_id,    // id del cliente
-            walk_id:     walk_record.walk_id,
+            value: walker_rating.value,
+            comment: walker_rating.comment,
+            sender_id: user_id,
+            receiver_id: walk_record.client_id,
+            walk_id: walk_record.walk_id,
           })
         );
       }
-
-      // Cliente califica a paseador
-      if (client_rating && client_rating.value != null) {
+      if (client_rating) {
         tasks.push(
           rating.create({
-            value:      client_rating.value,
-            comment:    client_rating.comment,
-            sender_id:   walk_record.client_id,    // id del cliente
-            receiver_id: user_id,                  // id del paseador
-            walk_id:     walk_record.walk_id,
+            value: client_rating.value,
+            comment: client_rating.comment,
+            sender_id: walk_record.client_id,
+            receiver_id: user_id,
+            walk_id: walk_record.walk_id,
           })
         );
       }
-
       await Promise.all(tasks);
-      // logica del pago y asignacion de balances, etc.
     }
 
     return res.json({ msg: `Paseo ${new_status}`, error: false });
   } catch (err) {
     console.error("Error en update_walk_status:", err);
-    return res.status(500).json({ msg: "Error al actualizar el estado del paseo", error: true });
+    return res
+      .status(500)
+      .json({ msg: "Error al actualizar el estado del paseo", error: true });
   }
 };
 

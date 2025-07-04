@@ -82,41 +82,71 @@ const get_user_ratings = async (req, res) => {
   try {
     const userId = parseInt(req.params.user_id, 10);
     if (isNaN(userId)) {
-      return res.status(400).json({ msg: 'user_id inválido', error: true });
+      return res.status(400).json({ msg: "user_id inválido", error: true });
     }
 
+    // 2) Ahora sí llama al mock de Rating.findAll
     const ratings = await Rating.findAll({
       where: { receiver_id: userId },
-      order: [['created_at', 'DESC']],
+      order: [["created_at", "DESC"]],
     });
 
     if (ratings.length === 0) {
       return res.json({
-        msg: 'No hay calificaciones para este usuario',
-        user_id: userId,
-        total_items: 0,
+        msg:            "No hay calificaciones para este usuario",
+        user_id:        userId,
+        total_items:    0,
         average_rating: 0,
-        ratings: [],
+        ratings:        [],
       });
     }
 
     const result = await Rating.findOne({
-      attributes: [[fn('AVG', col('value')), 'average_rating']],
-      where: { receiver_id: userId },
-      raw: true,
+      attributes: [[fn("AVG", col("value")), "average_rating"]],
+      where:      { receiver_id: userId },
+      raw:        true,
     });
     const average_rating = parseFloat(result.average_rating).toFixed(2);
 
     return res.json({
-      user_id: userId,
-      total_items: ratings.length,
+      user_id:        userId,
+      total_items:    ratings.length,
       average_rating: Number(average_rating),
       ratings,
     });
   } catch (err) {
-    console.error('Error en get_user_ratings:', err);
+    console.error("Error en get_user_ratings:", err);
+    return res
+      .status(500)
+      .json({ msg: "Error al obtener calificaciones de usuario", error: true });
+  }
+};
+
+const create_rating = async (req, res) => {
+  try {
+    const { walk_id, receiver_id, value, comment } = req.body;
+    const sender_id = req.user.user_id;
+
+    if (!walk_id || !receiver_id || !value || !comment?.trim()) {
+      return res.status(400).json({ msg: 'Datos incompletos para calificar', error: true });
+    }
+
+    const new_rating = await Rating.create({
+      walk_id,
+      sender_id,
+      receiver_id,
+      value,
+      comment,
+    });
+
+    return res.status(201).json({
+      msg: 'Calificación registrada correctamente',
+      rating: new_rating,
+    });
+  } catch (err) {
+    console.error('Error en create_rating:', err);
     return res.status(500).json({
-      msg: 'Error al obtener calificaciones de usuario',
+      msg: 'Error al registrar la calificación',
       error: true,
     });
   }
@@ -126,4 +156,5 @@ module.exports = {
   get_walk_ratings,
   list_ratings,
   get_user_ratings,
+  create_rating,
 };

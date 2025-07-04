@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const { user } = require("../models/database");
 const { Op } = require("sequelize");
 const { send_email } = require("../utils/email/email_service");
-const { send_sms } = require("../utils/send_sms_service"); 
+const { send_sms } = require("../utils/send_sms_service");
 
 // ————————————————
 // Inicio de sesión
@@ -83,6 +83,7 @@ const login_user = async (req, res) => {
       data: {
         user: {
           user_id: user_.user_id,
+          name: user_.name,
           email: user_.email,
           phone: user_.phone,
           role: user_.role ? user_.role.name : null,
@@ -111,10 +112,10 @@ const register_user = async (req, res) => {
   try {
     // 1) Recuperar y normalizar campos (snake_case)
     let { name, email, phone, password, confirm_password } = req.body;
-    name             = validator.trim(name);
-    email            = validator.trim(email);
-    phone            = validator.trim(phone);
-    password         = validator.trim(password);
+    name = validator.trim(name);
+    email = validator.trim(email);
+    phone = validator.trim(phone);
+    password = validator.trim(password);
     confirm_password = validator.trim(confirm_password);
 
     // 2) Validaciones básicas
@@ -171,7 +172,9 @@ const register_user = async (req, res) => {
     const hashed_password = await bcrypt.hash(password, 10);
 
     // 5) Generar código de verificación de 4 dígitos
-    const verification_code = Math.floor(1000 + Math.random() * 9000).toString();
+    const verification_code = Math.floor(
+      1000 + Math.random() * 9000
+    ).toString();
 
     // 6) Crear token JWT temporal con payload { name, email, phone, hashed_password, verification_code }
     //    y expiración de 15 minutos
@@ -199,7 +202,10 @@ const register_user = async (req, res) => {
       msg: "Registro preliminar creado. Ingresa el código recibido en tu teléfono para confirmar tu cuenta.",
       data: {
         pending_verification_token,
-      },
+        email,
+        phone,
+        user_id: null
+      }
     });
   } catch (err) {
     console.error("Error en register_user:", err);
@@ -208,7 +214,6 @@ const register_user = async (req, res) => {
 };
 
 /**
- * Verificar código telefónico sin tabla intermedia.
  * Recibe { pending_verification_token, code } en el body.
  * Si coincide y no expiró, crea el usuario real en User (is_enable=true) y
  * devuelve el token de sesión.
@@ -221,7 +226,10 @@ const verify_phone = async (req, res) => {
     if (!pending_verification_token || !code) {
       return res
         .status(400)
-        .json({ error: true, msg: "pending_verification_token y código son obligatorios" });
+        .json({
+          error: true,
+          msg: "pending_verification_token y código son obligatorios",
+        });
     }
 
     // 2) Decodificar y verificar el JWT
@@ -231,14 +239,15 @@ const verify_phone = async (req, res) => {
     } catch (err) {
       return res
         .status(400)
-        .json({ error: true, msg: "Token inválido o expirado. Debes registrarte de nuevo." });
+        .json({
+          error: true,
+          msg: "Token inválido o expirado. Debes registrarte de nuevo.",
+        });
     }
 
     // 3) Comparar código
     if (decoded.verification_code !== code) {
-      return res
-        .status(400)
-        .json({ error: true, msg: "Código inválido" });
+      return res.status(400).json({ error: true, msg: "Código inválido" });
     }
 
     // 4) Verificar nuevamente que no exista un usuario real con el mismo email o phone
@@ -259,8 +268,7 @@ const verify_phone = async (req, res) => {
       phone: decoded.phone,
       password: decoded.hashed_password,
       is_enable: true,
-      // role_id se asigna según tu lógica por defecto, por ejemplo
-      // role_id: 3  // o el id del rol “Cliente”
+      role_id: 3,
     });
 
     // 6) Generar JWT de sesión (por ejemplo, 4 horas)
@@ -268,13 +276,9 @@ const verify_phone = async (req, res) => {
       user_id: new_user.user_id,
       role_id: new_user.role_id,
     };
-    const session_token = jwt.sign(
-      session_payload,
-      process.env.JWT_SECRET,
-      { expiresIn: "4h" }
-    );
-
-    // 7) (Opcional) Puedes enviar un SMS o email de confirmación final aquí
+    const session_token = jwt.sign(session_payload, process.env.JWT_SECRET, {
+      expiresIn: "4h",
+    });
 
     // 8) Responder con datos de usuario + token de sesión
     return res.json({

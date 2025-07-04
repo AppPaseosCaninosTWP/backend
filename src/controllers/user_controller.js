@@ -45,12 +45,14 @@ const get_user_by_id = async (req, res) => {
     });
 
     if (!found_user) {
-      return res.status(404).json({ msg: "usuario no encontrado", error: true });
+      return res
+        .status(404)
+        .json({ msg: "usuario no encontrado", error: true });
     }
 
-    return res.json({
+    return res.status(200).json({
       msg: "usuario encontrado exitosamente",
-      data: {
+      data: [{
         user_id: found_user.user_id,
         name: found_user.name,
         email: found_user.email,
@@ -59,7 +61,7 @@ const get_user_by_id = async (req, res) => {
         ticket: found_user.ticket,
         role_id: found_user.role_id,
         role_name: found_user.role?.name || null,
-      },
+      }],
       error: false,
     });
   } catch (error) {
@@ -74,7 +76,10 @@ const update_is_enable = async (req, res) => {
     if (req.user.role_id !== 1) {
       return res
         .status(403)
-        .json({ msg: "Acción no permitida: solo administradores", error: true });
+        .json({
+          msg: "Acción no permitida: solo administradores",
+          error: true,
+        });
     }
 
     const { id } = req.params;
@@ -83,7 +88,7 @@ const update_is_enable = async (req, res) => {
     // 2) Normalizar input a booleano
     // Acepta true, "true", 1, "1" => true; false, "false", 0, "0" => false
     const truthy = [true, "true", 1, "1"];
-    const falsy  = [false, "false", 0, "0"];
+    const falsy = [false, "false", 0, "0"];
 
     if (truthy.includes(is_enable)) {
       is_enable = true;
@@ -92,7 +97,10 @@ const update_is_enable = async (req, res) => {
     } else {
       return res
         .status(400)
-        .json({ msg: "El campo is_enable debe ser true/false o 1/0", error: true });
+        .json({
+          msg: "El campo is_enable debe ser true/false o 1/0",
+          error: true,
+        });
     }
 
     // 3) Buscar usuario
@@ -107,7 +115,10 @@ const update_is_enable = async (req, res) => {
     if (![2, 3].includes(found_user.role_id)) {
       return res
         .status(403)
-        .json({ msg: "No puedes modificar el estado de este rol", error: true });
+        .json({
+          msg: "No puedes modificar el estado de este rol",
+          error: true,
+        });
     }
 
     // 5) Aplicar y guardar
@@ -115,16 +126,15 @@ const update_is_enable = async (req, res) => {
     await found_user.save();
 
     return res.json({
-      msg: `Usuario ${is_enable ? "habilitado" : "deshabilitado"} correctamente`,
+      msg: `Usuario ${
+        is_enable ? "habilitado" : "deshabilitado"
+      } correctamente`,
       data: { user_id: found_user.user_id, is_enable: found_user.is_enable },
-      error: false
+      error: false,
     });
-
   } catch (err) {
     console.error("error en update_is_enable:", err);
-    return res
-      .status(500)
-      .json({ msg: "Error en el servidor", error: true });
+    return res.status(500).json({ msg: "Error en el servidor", error: true });
   }
 };
 
@@ -133,7 +143,9 @@ const verify_reset_code = async (req, res) => {
     const { email, code } = req.body;
 
     if (!email || !code) {
-      return res.status(400).json({ msg: "Email y código son obligatorios", error: true });
+      return res
+        .status(400)
+        .json({ msg: "Email y código son obligatorios", error: true });
     }
 
     const found_user = await user.findOne({ where: { email } });
@@ -144,7 +156,9 @@ const verify_reset_code = async (req, res) => {
       !found_user.reset_code_expires ||
       new Date() > found_user.reset_code_expires
     ) {
-      return res.status(400).json({ msg: "Código inválido o expirado", error: true });
+      return res
+        .status(400)
+        .json({ msg: "Código inválido o expirado", error: true });
     }
 
     return res.json({ msg: "Código válido", error: false });
@@ -154,10 +168,9 @@ const verify_reset_code = async (req, res) => {
   }
 };
 
-
 module.exports = {
   get_users,
   get_user_by_id,
   update_is_enable,
-  verify_reset_code
+  verify_reset_code,
 };
