@@ -1,6 +1,6 @@
 /**
  * @file payment_controller.test.js
- * @module mod1 - Gestión de Pagos
+ * @module mod4 - Gestión de Pagos
  * @description Pruebas unitarias para la función `generate_payment_receipt`
  *
  * Casos de prueba cubiertos:
@@ -16,7 +16,6 @@
  * 10. Error al enviar email - Dirección inválida (400)
  * 11. Error interno del servidor (500)
  *
- * Basado en: ERS v2.7 - Requerimiento PAY-006
  */
 
 const {

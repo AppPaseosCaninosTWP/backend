@@ -1,6 +1,6 @@
 /**
  * @file payment_controller.test.js
- * @module mod1 - Gestión de Pagos
+ * @module mod4 - Gestión de Pagos
  * @description Pruebas unitarias para la función `get_all_payments`
  *
  * Casos de prueba cubiertos:
