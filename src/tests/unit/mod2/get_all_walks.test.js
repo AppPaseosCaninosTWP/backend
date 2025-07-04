@@ -13,7 +13,7 @@
  *
  */
 
-const { get_all_walks } = require("../../controllers/walk_controller");
+const { get_all_walks } = require("../../../controllers/walk_controller");
 const {
   walk,
   walker_profile,
@@ -21,11 +21,11 @@ const {
   walk_type,
   days_walk,
   pet,
-} = require("../../models/database");
+} = require("../../../models/database");
 const { Op } = require("sequelize");
 
 // Mock de todas las dependencias
-jest.mock("../../models/database", () => ({
+jest.mock("../../../models/database", () => ({
   walk: {
     findAll: jest.fn(),
   },

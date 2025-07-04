@@ -20,7 +20,6 @@
  * 14. Paseo creado exitosamente (201)
  * 15. Error interno del servidor (500)
  *
- * Basado en: ERS v2.7 – Requerimiento WALK-001
  */
 
 const { create_walk } = require("../../../controllers/walk_controller");
