@@ -17,12 +17,12 @@
  *
  */
 
-const { update_walk_status } = require("../../controllers/walk_controller");
-const { walk, days_walk, rating } = require("../../models/database");
+const { update_walk_status } = require("../../../controllers/walk_controller");
+const { walk, days_walk, rating } = require("../../../models/database");
 const dayjs = require("dayjs");
 
 // Mock de todas las dependencias
-jest.mock("../../models/database", () => ({
+jest.mock("../../../models/database", () => ({
   walk: {
     findByPk: jest.fn(),
   },
