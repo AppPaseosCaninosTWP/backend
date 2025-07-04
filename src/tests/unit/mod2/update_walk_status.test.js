@@ -102,7 +102,7 @@ describe("update_walk_status", () => {
   test("retorna 404 si el paseo no existe", async () => {
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findByPk.mockResolvedValue(null);
 
     await update_walk_status(req, res);
@@ -118,7 +118,7 @@ describe("update_walk_status", () => {
   test("confirma paseo pendiente correctamente", async () => {
     const req = buildReq({ body: { new_status: "confirmado" } });
     const res = buildRes();
-    
+
     const walkRecord = mockWalkRecord("pendiente", 100);
     walk.findByPk.mockResolvedValue(walkRecord);
 
@@ -138,7 +138,7 @@ describe("update_walk_status", () => {
   test("cancela paseo con suficiente anticipación", async () => {
     const req = buildReq({ body: { new_status: "cancelado" } });
     const res = buildRes();
-    
+
     const walkRecord = mockWalkRecord("confirmado", 100, 1);
     walk.findByPk.mockResolvedValue(walkRecord);
     days_walk.findOne.mockResolvedValue({
@@ -168,7 +168,7 @@ describe("update_walk_status", () => {
   test("rechaza cancelación con menos de 30 minutos", async () => {
     const req = buildReq({ body: { new_status: "cancelado" } });
     const res = buildRes();
-    
+
     const walkRecord = mockWalkRecord("confirmado", 100, 1);
     walk.findByPk.mockResolvedValue(walkRecord);
     days_walk.findOne.mockResolvedValue({
@@ -195,7 +195,7 @@ describe("update_walk_status", () => {
   test("marca paseo como en curso correctamente", async () => {
     const req = buildReq({ body: { new_status: "en_curso" } });
     const res = buildRes();
-    
+
     const walkRecord = mockWalkRecord("confirmado", 100, 1);
     walk.findByPk.mockResolvedValue(walkRecord);
 
@@ -214,7 +214,7 @@ describe("update_walk_status", () => {
   test("finaliza paseo sin ratings correctamente", async () => {
     const req = buildReq({ body: { new_status: "finalizado" } });
     const res = buildRes();
-    
+
     const walkRecord = mockWalkRecord("en_curso", 100, 1);
     walk.findByPk.mockResolvedValue(walkRecord);
 
@@ -246,7 +246,7 @@ describe("update_walk_status", () => {
       },
     });
     const res = buildRes();
-    
+
     const walkRecord = mockWalkRecord("en_curso", 100, 1);
     walk.findByPk.mockResolvedValue(walkRecord);
     rating.create.mockResolvedValue({});
@@ -275,7 +275,7 @@ describe("update_walk_status", () => {
       },
     });
     const res = buildRes();
-    
+
     const walkRecord = mockWalkRecord("en_curso", 100, 1);
     walk.findByPk.mockResolvedValue(walkRecord);
 
@@ -295,7 +295,7 @@ describe("update_walk_status", () => {
 
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findByPk.mockRejectedValue(new Error("Error de base de datos"));
 
     await update_walk_status(req, res);

@@ -64,7 +64,7 @@ const get_walk_history = async (req, res) => {
       order: [["walk_id", "DESC"]],
     });
 
-    const data = walks.map(walk => {
+    const data = walks.map((walk) => {
       const walkData = {
         walk_id: walk.walk_id,
         walk_type: walk.walk_type?.name,
@@ -76,7 +76,7 @@ const get_walk_history = async (req, res) => {
         const pet = walk.pets[0];
         walkData.pet_id = pet.pet_id;
         walkData.pet_name = pet.name;
-        walkData.pet_photo = pet.photo 
+        walkData.pet_photo = pet.photo
           ? `${req.protocol}://${req.get("host")}/api/uploads/${pet.photo}`
           : null;
         walkData.zone = pet.zone;
@@ -134,17 +134,25 @@ describe("get_walk_history", () => {
     walker_id: walkerId,
     is_rated: isRated || false,
     walk_type: { name: walkTypeName || "Fijo" },
-    pets: petData ? [{
-      pet_id: petData.id || 1,
-      name: petData.name || "Firulais",
-      photo: petData.photo || "firulais.jpg",
-      zone: petData.zone || "norte",
-    }] : [],
-    days: dayData ? [{
-      start_date: dayData.date || "2023-01-01",
-      start_time: dayData.time || "10:00",
-      duration: dayData.duration || 30,
-    }] : [],
+    pets: petData
+      ? [
+          {
+            pet_id: petData.id || 1,
+            name: petData.name || "Firulais",
+            photo: petData.photo || "firulais.jpg",
+            zone: petData.zone || "norte",
+          },
+        ]
+      : [],
+    days: dayData
+      ? [
+          {
+            start_date: dayData.date || "2023-01-01",
+            start_time: dayData.time || "10:00",
+            duration: dayData.duration || 30,
+          },
+        ]
+      : [],
   });
 
   beforeEach(() => {
@@ -155,11 +163,20 @@ describe("get_walk_history", () => {
   test("retorna historial de paseos finalizados", async () => {
     const req = buildReq({ user: { user_id: 100 } });
     const res = buildRes();
-    
+
     // Mock de paseos finalizados
     const mockWalks = [
-      mockWalk(1, 100, { id: 1, name: "Firulais" }, "Fijo", { date: "2023-01-01" }),
-      mockWalk(2, 100, { id: 2, name: "Rex" }, "Esporádico", { date: "2023-01-02" }, true),
+      mockWalk(1, 100, { id: 1, name: "Firulais" }, "Fijo", {
+        date: "2023-01-01",
+      }),
+      mockWalk(
+        2,
+        100,
+        { id: 2, name: "Rex" },
+        "Esporádico",
+        { date: "2023-01-02" },
+        true
+      ),
     ];
     walk.findAll.mockResolvedValue(mockWalks);
 
@@ -197,7 +214,7 @@ describe("get_walk_history", () => {
   test("retorna array vacío si no hay paseos finalizados", async () => {
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findAll.mockResolvedValue([]);
 
     await get_walk_history(req, res);
@@ -216,7 +233,7 @@ describe("get_walk_history", () => {
       get: jest.fn().mockReturnValue("api.midominio.com"),
     });
     const res = buildRes();
-    
+
     walk.findAll.mockResolvedValue([
       mockWalk(1, 1, { photo: "mascota1.png" }, "Fijo", { date: "2023-01-01" }),
     ]);
@@ -232,7 +249,7 @@ describe("get_walk_history", () => {
   test("maneja paseos sin mascotas correctamente", async () => {
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findAll.mockResolvedValue([
       mockWalk(1, 1, null, "Fijo", { date: "2023-01-01" }),
     ]);
@@ -250,10 +267,8 @@ describe("get_walk_history", () => {
   test("maneja paseos sin días correctamente", async () => {
     const req = buildReq();
     const res = buildRes();
-    
-    walk.findAll.mockResolvedValue([
-      mockWalk(1, 1, { id: 1 }, "Fijo", null),
-    ]);
+
+    walk.findAll.mockResolvedValue([mockWalk(1, 1, { id: 1 }, "Fijo", null)]);
 
     await get_walk_history(req, res);
 
@@ -270,7 +285,7 @@ describe("get_walk_history", () => {
 
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findAll.mockRejectedValue(new Error("Error de base de datos"));
 
     await get_walk_history(req, res);

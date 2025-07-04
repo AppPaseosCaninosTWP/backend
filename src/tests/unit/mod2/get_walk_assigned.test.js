@@ -56,17 +56,25 @@ describe("get_walk_assigned", () => {
     walk_id: id,
     status: "confirmado",
     walker_id: walkerId,
-    pets: petData ? [{
-      pet_id: petData.id || 1,
-      name: petData.name || "Firulais",
-      photo: petData.photo || "firulais.jpg",
-      zone: petData.zone || "norte",
-    }] : [],
-    days: dayData ? [{
-      start_date: dayData.date || "2023-01-01",
-      start_time: dayData.time || "10:00",
-      duration: dayData.duration || 30,
-    }] : [],
+    pets: petData
+      ? [
+          {
+            pet_id: petData.id || 1,
+            name: petData.name || "Firulais",
+            photo: petData.photo || "firulais.jpg",
+            zone: petData.zone || "norte",
+          },
+        ]
+      : [],
+    days: dayData
+      ? [
+          {
+            start_date: dayData.date || "2023-01-01",
+            start_time: dayData.time || "10:00",
+            duration: dayData.duration || 30,
+          },
+        ]
+      : [],
   });
 
   beforeEach(() => {
@@ -77,7 +85,7 @@ describe("get_walk_assigned", () => {
   test("retorna paseos asignados correctamente", async () => {
     const req = buildReq({ user: { user_id: 100 } });
     const res = buildRes();
-    
+
     // Mock de paseos asignados
     const mockWalks = [
       mockWalk(1, 100, { id: 1, name: "Firulais" }, { date: "2023-01-02" }),
@@ -119,7 +127,7 @@ describe("get_walk_assigned", () => {
   test("retorna array vacío si no hay paseos asignados", async () => {
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findAll.mockResolvedValue([]);
 
     await get_walk_assigned(req, res);
@@ -135,7 +143,7 @@ describe("get_walk_assigned", () => {
   test("filtra paseos por fechas futuras", async () => {
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findAll.mockResolvedValue([
       mockWalk(1, 1, { id: 1 }, { date: "2023-01-02" }),
     ]);
@@ -143,24 +151,26 @@ describe("get_walk_assigned", () => {
     await get_walk_assigned(req, res);
 
     // Verificar que se filtra por fecha mayor o igual a hoy
-    expect(walk.findAll).toHaveBeenCalledWith(expect.objectContaining({
-      include: expect.arrayContaining([
-        expect.objectContaining({
-          where: {
-            start_date: {
-              [Op.gte]: "2023-01-01", // Valor mockeado de dayjs
+    expect(walk.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.arrayContaining([
+          expect.objectContaining({
+            where: {
+              start_date: {
+                [Op.gte]: "2023-01-01", // Valor mockeado de dayjs
+              },
             },
-          },
-        }),
-      ]),
-    }));
+          }),
+        ]),
+      })
+    );
   });
 
   // 4. Maneja paseos sin mascotas correctamente
   test("maneja paseos sin mascotas correctamente", async () => {
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findAll.mockResolvedValue([
       mockWalk(1, 1, null, { date: "2023-01-02" }),
     ]);
@@ -178,10 +188,8 @@ describe("get_walk_assigned", () => {
   test("maneja paseos sin días correctamente", async () => {
     const req = buildReq();
     const res = buildRes();
-    
-    walk.findAll.mockResolvedValue([
-      mockWalk(1, 1, { id: 1 }, null),
-    ]);
+
+    walk.findAll.mockResolvedValue([mockWalk(1, 1, { id: 1 }, null)]);
 
     await get_walk_assigned(req, res);
 
@@ -198,7 +206,7 @@ describe("get_walk_assigned", () => {
 
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findAll.mockRejectedValue(new Error("Error de base de datos"));
 
     await get_walk_assigned(req, res);

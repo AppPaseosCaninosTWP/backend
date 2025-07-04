@@ -18,7 +18,14 @@
 
 // Corregir las rutas relativas
 const { get_walk_by_id } = require("../../../controllers/walk_controller");
-const { walk, walk_type, user, days_walk, pet_walk, pet } = require("../../../models/database");
+const {
+  walk,
+  walk_type,
+  user,
+  days_walk,
+  pet_walk,
+  pet,
+} = require("../../../models/database");
 
 // Mock de todas las dependencias
 jest.mock("../../../models/database", () => ({
@@ -71,16 +78,27 @@ describe("get_walk_by_id", () => {
     status,
     walk_type_id: walkTypeId,
     comments: "Comentarios de prueba",
-    client: { user_id: clientId, email: `client${clientId}@test.com`, phone: "123456789" },
-    walker: walkerId ? { user_id: walkerId, email: `walker${walkerId}@test.com`, phone: "987654321" } : null,
-    walk_type: { walk_type_id: walkTypeId, name: walkTypeId === 1 ? "Fijo" : "Esporádico" },
-    days: [
-      { start_date: "2023-01-01", start_time: "10:00", duration: 30 },
-    ],
+    client: {
+      user_id: clientId,
+      email: `client${clientId}@test.com`,
+      phone: "123456789",
+    },
+    walker: walkerId
+      ? {
+          user_id: walkerId,
+          email: `walker${walkerId}@test.com`,
+          phone: "987654321",
+        }
+      : null,
+    walk_type: {
+      walk_type_id: walkTypeId,
+      name: walkTypeId === 1 ? "Fijo" : "Esporádico",
+    },
+    days: [{ start_date: "2023-01-01", start_time: "10:00", duration: 30 }],
   });
 
-  const mockPetWalks = (walkId, petIds) => 
-    petIds.map(petId => ({
+  const mockPetWalks = (walkId, petIds) =>
+    petIds.map((petId) => ({
       walk_id: walkId,
       pet: {
         pet_id: petId,
@@ -112,7 +130,7 @@ describe("get_walk_by_id", () => {
   test("retorna 404 si el paseo no existe", async () => {
     const req = buildReq();
     const res = buildRes();
-    
+
     walk.findByPk.mockResolvedValue(null);
 
     await get_walk_by_id(req, res);
@@ -128,7 +146,7 @@ describe("get_walk_by_id", () => {
   test("retorna 403 si cliente intenta acceder a paseo de otro", async () => {
     const req = buildReq({ user: { user_id: 100, role_id: 3 } });
     const res = buildRes();
-    
+
     // Paseo pertenece al cliente 200
     walk.findByPk.mockResolvedValueOnce(
       mockBasicWalk(1, 200, null, "pendiente", 1)
@@ -147,7 +165,7 @@ describe("get_walk_by_id", () => {
   test("retorna 403 si paseador intenta acceder a paseo no asignado", async () => {
     const req = buildReq({ user: { user_id: 100, role_id: 2 } });
     const res = buildRes();
-    
+
     // Paseo asignado a otro paseador (200)
     walk.findByPk.mockResolvedValueOnce(
       mockBasicWalk(1, 300, 200, "confirmado", 1)
@@ -166,21 +184,19 @@ describe("get_walk_by_id", () => {
   test("admin puede acceder a cualquier paseo", async () => {
     const req = buildReq({ user: { user_id: 1, role_id: 1 } });
     const res = buildRes();
-    
+
     // Mock de paseo básico
     walk.findByPk.mockResolvedValueOnce(
       mockBasicWalk(1, 200, 300, "finalizado", 2)
     );
-    
+
     // Mock de paseo completo
     walk.findByPk.mockResolvedValueOnce(
       mockFullWalk(1, 200, 300, "finalizado", 2)
     );
-    
+
     // Mock de mascotas
-    pet_walk.findAll.mockResolvedValue(
-      mockPetWalks(1, [1, 2])
-    );
+    pet_walk.findAll.mockResolvedValue(mockPetWalks(1, [1, 2]));
 
     await get_walk_by_id(req, res);
 
@@ -200,82 +216,82 @@ describe("get_walk_by_id", () => {
   test("cliente puede acceder a su propio paseo", async () => {
     const req = buildReq({ user: { user_id: 100, role_id: 3 } });
     const res = buildRes();
-    
+
     // Paseo pertenece al cliente 100
     walk.findByPk.mockResolvedValueOnce(
       mockBasicWalk(1, 100, 200, "confirmado", 1)
     );
-    
+
     walk.findByPk.mockResolvedValueOnce(
       mockFullWalk(1, 100, 200, "confirmado", 1)
     );
-    
-    pet_walk.findAll.mockResolvedValue(
-      mockPetWalks(1, [1, 2])
-    );
+
+    pet_walk.findAll.mockResolvedValue(mockPetWalks(1, [1, 2]));
 
     await get_walk_by_id(req, res);
 
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        client: expect.objectContaining({ user_id: 100 }),
-      }),
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          client: expect.objectContaining({ user_id: 100 }),
+        }),
+      })
+    );
   });
 
   // 7. Paseador accede a paseo asignado (200)
   test("paseador puede acceder a paseo asignado", async () => {
     const req = buildReq({ user: { user_id: 200, role_id: 2 } });
     const res = buildRes();
-    
+
     // Paseo asignado al paseador 200
     walk.findByPk.mockResolvedValueOnce(
       mockBasicWalk(1, 100, 200, "confirmado", 1)
     );
-    
+
     walk.findByPk.mockResolvedValueOnce(
       mockFullWalk(1, 100, 200, "confirmado", 1)
     );
-    
-    pet_walk.findAll.mockResolvedValue(
-      mockPetWalks(1, [1, 2])
-    );
+
+    pet_walk.findAll.mockResolvedValue(mockPetWalks(1, [1, 2]));
 
     await get_walk_by_id(req, res);
 
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        walker: expect.objectContaining({ user_id: 200 }),
-      }),
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          walker: expect.objectContaining({ user_id: 200 }),
+        }),
+      })
+    );
   });
 
   // 8. Paseador accede a paseo pendiente (200)
   test("paseador puede acceder a paseo pendiente", async () => {
     const req = buildReq({ user: { user_id: 200, role_id: 2 } });
     const res = buildRes();
-    
+
     // Paseo pendiente (sin walker_id)
     walk.findByPk.mockResolvedValueOnce(
       mockBasicWalk(1, 100, null, "pendiente", 1)
     );
-    
+
     walk.findByPk.mockResolvedValueOnce(
       mockFullWalk(1, 100, null, "pendiente", 1)
     );
-    
-    pet_walk.findAll.mockResolvedValue(
-      mockPetWalks(1, [1, 2])
-    );
+
+    pet_walk.findAll.mockResolvedValue(mockPetWalks(1, [1, 2]));
 
     await get_walk_by_id(req, res);
 
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        status: "pendiente",
-        walker: null,
-      }),
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "pendiente",
+          walker: null,
+        }),
+      })
+    );
   });
 
   // 9. Error interno del servidor (500)
@@ -285,7 +301,7 @@ describe("get_walk_by_id", () => {
 
     const req = buildReq();
     const res = buildRes();
-    
+
     // Simular error en la base de datos
     walk.findByPk.mockRejectedValue(new Error("Error de base de datos"));
 

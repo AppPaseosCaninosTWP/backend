@@ -62,9 +62,9 @@ jest.mock("dayjs", () => {
   // Crear un objeto mock que simula una instancia de Day.js
   const createMockDayjs = (date) => ({
     format: jest.fn((formatStr) => {
-      if (formatStr === 'YYYY-MM-DD') return "2024-01-15";
-      if (formatStr === 'dddd') return "lunes";
-      if (formatStr === 'HH:mm') return "10:00";
+      if (formatStr === "YYYY-MM-DD") return "2024-01-15";
+      if (formatStr === "dddd") return "lunes";
+      if (formatStr === "HH:mm") return "10:00";
       return "2024-01-15";
     }),
     isoWeekday: jest.fn(() => 1),
@@ -80,12 +80,12 @@ jest.mock("dayjs", () => {
 
   // Función principal de Day.js
   const mockDayjs = jest.fn((date) => createMockDayjs(date));
-  
+
   // Propiedades estáticas
   mockDayjs.extend = jest.fn();
   mockDayjs.locale = jest.fn();
   mockDayjs.tz = jest.fn();
-  
+
   return mockDayjs;
 });
 
@@ -111,7 +111,7 @@ describe("create_walk", () => {
     jest.clearAllMocks();
     walk.sequelize.transaction.mockResolvedValue(mock_transaction);
     calculate_payment_amount.mockReturnValue(15000);
-    
+
     // Mock para generate_days_for_week
     generate_days_for_week.mockReturnValue([
       { start_date: "2024-01-15", start_time: "10:00", duration: 30 },
@@ -274,10 +274,10 @@ describe("create_walk", () => {
 
   // 8. Paseo de prueba creado exitosamente (201)
   test("retorna 201 cuando se crea un paseo de prueba exitosamente", async () => {
-    user.findByPk.mockResolvedValue({ 
-      user_id: 1, 
+    user.findByPk.mockResolvedValue({
+      user_id: 1,
       ticket: true,
-      update: jest.fn().mockResolvedValue(true)
+      update: jest.fn().mockResolvedValue(true),
     });
     pet.findAll.mockResolvedValue([{ pet_id: 1, name: "Firulais" }]);
     walk.create.mockResolvedValue({ walk_id: 1 });
