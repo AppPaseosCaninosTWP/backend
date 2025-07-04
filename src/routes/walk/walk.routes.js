@@ -32,6 +32,6 @@ router.get("/assigned", allow_roles(2), get_walk_assigned);
 router.get("/:id", allow_roles(1, 2, 3), get_walk_by_id);
 
 // Permite al paseador actualizar el estado de un paseo (aceptar o cancelar).
-router.put("/:id/status", allow_roles(2), update_walk_status);
+router.put("/:id/status", allow_roles(1, 2), update_walk_status);
 
 module.exports = router;
