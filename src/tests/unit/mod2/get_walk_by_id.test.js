@@ -16,11 +16,12 @@
  *
  */
 
-const { get_walk_by_id } = require("../../controllers/walk_controller");
-const { walk, walk_type, user, days_walk, pet_walk, pet } = require("../../models/database");
+// Corregir las rutas relativas
+const { get_walk_by_id } = require("../../../controllers/walk_controller");
+const { walk, walk_type, user, days_walk, pet_walk, pet } = require("../../../models/database");
 
 // Mock de todas las dependencias
-jest.mock("../../models/database", () => ({
+jest.mock("../../../models/database", () => ({
   walk: {
     findByPk: jest.fn(),
   },
