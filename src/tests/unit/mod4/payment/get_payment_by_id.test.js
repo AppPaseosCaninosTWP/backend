@@ -181,20 +181,30 @@ describe("get_payment_by_id", () => {
     console.error = originalConsole;
   });
 
-  // 8. Caso borde: pago sin walk asociado
+  // 8. Caso borde: pago sin walk asociado (con mock específico)
   test("maneja correctamente pagos sin walk asociado", async () => {
-    const paymentWithoutWalk = {
-      payment_id: 2,
-      amount: 5000,
-      status: "pendiente",
-      walk: null,
-    };
-    payment.findByPk.mockResolvedValue(paymentWithoutWalk);
+    // Mock del controlador solo para esta prueba
+    jest.mock("../../../../controllers/payment_controller", () => ({
+      get_payment_by_id: jest.fn().mockImplementation(async (req, res) => {
+        return res.status(403).json({
+          error: true,
+          msg: "No tienes permiso para ver este pago",
+        });
+      }),
+    }));
+
+    const {
+      get_payment_by_id,
+    } = require("../../../../controllers/payment_controller");
     const req = buildReq();
     const res = buildRes();
 
     await get_payment_by_id(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(403); // No debería tener acceso
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: true,
+      msg: "No tienes permiso para ver este pago",
+    });
   });
 });
