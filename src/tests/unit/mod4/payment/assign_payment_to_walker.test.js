@@ -15,7 +15,6 @@
  * 9. Perfil de paseador no encontrado (404)
  * 10. Error interno del servidor (500)
  *
- * Basado en: ERS v2.7 - Requerimiento PAY-007
  */
 
 // 1. Primero configuramos todos los mocks necesarios
